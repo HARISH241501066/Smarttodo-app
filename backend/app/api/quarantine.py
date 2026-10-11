@@ -16,6 +16,7 @@ from app.filters.task_stage import ingest_message
 from app.ingest.gmail import GmailApi, MessageGone, RateLimited
 from app.ingest.mime import parse_message
 from app.models import ProcessedMessage, Quarantine, User
+from app.scheduler.reminders import sync_reminders
 from app.schemas.tasks import QuarantineOut, RescueOut, TaskOut
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,10 @@ def rescue(
         logger.warning("gmail api error during rescue: status=%s", exc.resp.status)
         raise HTTPException(502, "Gmail API error") from exc
 
-    task, created = ingest_message(session, user, parsed, datetime.now(UTC))
+    now = datetime.now(UTC)
+    task, created = ingest_message(session, user, parsed, now)
+    if task is not None:
+        sync_reminders(session, task, now=now, created=created)
     row.status = "rescued"
     stmt = insert(ProcessedMessage).values(
         user_id=user.id, message_id=row.message_id, decision="passed", reason="rescued"

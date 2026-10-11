@@ -5,19 +5,15 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from freezegun import freeze_time
 from sqlalchemy import select, text
-from sqlalchemy.orm import sessionmaker
 
 from app.api.sync import get_gmail_api
-from app.db import get_session
 from app.ingest.gmail import MessageGone, RateLimited
 from app.ingest.query import DEFAULT_DENYLIST, build_query
 from app.main import app
 from app.models import Reminder, Task
 from app.priority import recompute_priorities
-from app.security import sign
 from tests.gmail_fakes import FakeGmailApi
 from tests.test_ingest_gmail import http_error
 
@@ -26,55 +22,6 @@ UTC_NOW = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)
 
 
 # ---------- fixtures ----------
-
-
-@pytest.fixture
-def client_factory(engine):
-    def override_session():
-        with sessionmaker(engine, expire_on_commit=False)() as session:
-            yield session
-
-    app.dependency_overrides[get_session] = override_session
-    clients = []
-
-    def make(user_id: int | None = None) -> TestClient:
-        c = TestClient(app, follow_redirects=False)
-        if user_id is not None:
-            c.cookies.set("session", sign({"uid": user_id}, "session"))
-        clients.append(c)
-        return c
-
-    yield make
-    for c in clients:
-        c.close()
-    app.dependency_overrides.clear()
-
-
-def new_user(engine, email) -> int:
-    with engine.begin() as conn:
-        return conn.execute(
-            text("INSERT INTO users (email) VALUES (:e) RETURNING id"), {"e": email}
-        ).scalar_one()
-
-
-@pytest.fixture
-def uid(engine):
-    return new_user(engine, "a@example.test")
-
-
-@pytest.fixture
-def uid_b(engine):
-    return new_user(engine, "b@example.test")
-
-
-@pytest.fixture
-def api(client_factory, uid):
-    return client_factory(uid)
-
-
-@pytest.fixture
-def api_b(client_factory, uid_b):
-    return client_factory(uid_b)
 
 
 def add_task(engine, uid, **kw) -> int:

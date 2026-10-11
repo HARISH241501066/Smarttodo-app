@@ -12,6 +12,7 @@ from app.filters.deadline import priority_for
 from app.filters.links import gmail_fallback
 from app.models import Reminder, Task, User
 from app.priority import recompute_priorities
+from app.scheduler.reminders import sync_reminders
 from app.schemas.tasks import (
     Priority,
     ReviewConfirm,
@@ -100,6 +101,8 @@ def create_task(
     )
     _set_link(task, body.link)
     session.add(task)
+    session.flush()
+    sync_reminders(session, task, now=now, created=True)
     session.commit()
     return TaskOut.from_task(task)
 
@@ -145,6 +148,8 @@ def update_task(
         if body.status in ("done", "dismissed"):
             _cancel_pending_reminders(session, task.id)
     task.updated_at = now
+    if "deadline" in sent or "status" in sent:  # regenerate the unsent reminders
+        sync_reminders(session, task, now=now)
     session.commit()
     return TaskOut.from_task(task)
 
@@ -217,5 +222,7 @@ def review_confirm(
     task.status = "open"
     task.confidence = 1.0  # confirmed by the user
     task.updated_at = now
+    session.flush()
+    sync_reminders(session, task, now=now, created=True)
     session.commit()
     return TaskOut.from_task(task)

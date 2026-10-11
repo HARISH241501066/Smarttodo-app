@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -6,7 +7,9 @@ from google.auth.exceptions import GoogleAuthError
 
 from app.api import auth, me, quarantine, settings, sync, tasks
 from app.auth.credentials import ReauthRequired
+from app.config import get_settings
 from app.db import check_db
+from app.scheduler.core import start_scheduler
 
 _app_logger = logging.getLogger("app")
 _app_logger.setLevel(logging.INFO)
@@ -15,7 +18,24 @@ if not _app_logger.handlers:
     _handler.setFormatter(logging.Formatter("%(levelname)s [%(name)s] %(message)s"))
     _app_logger.addHandler(_handler)
 
-app = FastAPI(title="Smart Inbox To-Do")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Run the background scheduler inside the API process when SCHEDULER_ENABLED is true.
+    Jobs live in Postgres, so they survive a restart."""
+    scheduler = None
+    if get_settings().scheduler_enabled:
+        scheduler = start_scheduler()
+        app.state.scheduler = scheduler
+    try:
+        yield
+    finally:
+        if scheduler is not None:
+            scheduler.shutdown(wait=True)
+            _app_logger.info("scheduler stopped")
+
+
+app = FastAPI(title="Smart Inbox To-Do", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(me.router)
 app.include_router(sync.router)

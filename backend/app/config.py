@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     session_max_age_seconds: int = 14 * 24 * 3600
     post_login_redirect: str = "/me"
 
+    # Background jobs. Off by default so tests and ad-hoc imports never start a scheduler.
+    scheduler_enabled: bool = False
+    sms_enabled: bool = False  # SMS to Indian numbers generally needs DLT registration
+
 
 @lru_cache
 def get_settings() -> Settings:

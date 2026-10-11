@@ -21,6 +21,7 @@ from app.filters.links import pick_action_link
 from app.filters.pipeline import NextStage
 from app.ingest.mime import ParsedMessage
 from app.models import Task, User, UserSettings
+from app.scheduler.reminders import sync_reminders
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +134,10 @@ def make_task_stage(
     session: Session, clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 ) -> NextStage:
     def stage(user: User, message: ParsedMessage) -> None:
-        ingest_message(session, user, message, clock())
+        now = clock()
+        task, created = ingest_message(session, user, message, now)
+        if task is not None:  # (re)build the reminder ladder; no-op for tasks that need review
+            sync_reminders(session, task, now=now, created=created)
 
     return stage
 

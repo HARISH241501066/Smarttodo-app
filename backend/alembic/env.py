@@ -14,6 +14,11 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def include_object(obj, name, type_, reflected, compare_to):
+    """APScheduler creates and owns its job-store table; keep it out of autogenerate."""
+    return not (type_ == "table" and name == "apscheduler_jobs")
+
+
 def _url() -> str:
     return config.get_main_option("sqlalchemy.url") or get_settings().database_url
 
@@ -27,7 +32,9 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     engine = create_engine(_url())
     with engine.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection, target_metadata=target_metadata, include_object=include_object
+        )
         with context.begin_transaction():
             context.run_migrations()
     engine.dispose()

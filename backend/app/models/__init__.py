@@ -1,6 +1,7 @@
 from app.models.base import (
     Base,
     IngestFailure,
+    Notification,
     ProcessedMessage,
     Quarantine,
     Reminder,
@@ -13,6 +14,7 @@ from app.models.base import (
 __all__ = [
     "Base",
     "IngestFailure",
+    "Notification",
     "ProcessedMessage",
     "Quarantine",
     "Reminder",

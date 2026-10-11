@@ -8,6 +8,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -32,6 +33,8 @@ TASK_PRIORITIES = ("urgent", "important", "regular")
 TASK_STATUSES = ("open", "done", "needs_review", "dismissed")
 QUARANTINE_STATUSES = ("held", "rescued", "confirmed_scam")
 LINK_TYPES = ("action", "gmail")
+REMINDER_KINDS = ("created", "t48", "t24", "t10", "t1", "immediate")
+NOTIFICATION_KINDS = ("reminder", "digest")
 PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed")
 
 
@@ -95,6 +98,8 @@ class Reminder(Base):
     __tablename__ = "reminders"
     __table_args__ = (
         UniqueConstraint("task_id", "fire_at", "channel", name="uq_reminders_task_fire_channel"),
+        CheckConstraint(_in("kind", REMINDER_KINDS), name="kind"),
+        Index("ix_reminders_due", "fire_at", postgresql_where=text("sent_at IS NULL")),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -105,6 +110,32 @@ class Reminder(Base):
     channel: Mapped[str] = mapped_column(String(32), nullable=False)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    kind: Mapped[str | None] = mapped_column(String(16))  # ladder step; drives the wording
+
+
+class Notification(Base):
+    """In-app notification (the bell). One per sent reminder, plus daily digests."""
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint("reminder_id", name="uq_notifications_reminder_id"),
+        CheckConstraint(_in("kind", NOTIFICATION_KINDS), name="kind"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), index=True
+    )
+    reminder_id: Mapped[int | None] = mapped_column(ForeignKey("reminders.id", ondelete="SET NULL"))
+    kind: Mapped[str] = mapped_column(String(16), server_default="reminder", nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    body: Mapped[str | None] = mapped_column(Text)
+    link: Mapped[str | None] = mapped_column(Text)
+    read: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    created_at: Mapped[datetime] = _ts()
 
 
 class Quarantine(Base):
