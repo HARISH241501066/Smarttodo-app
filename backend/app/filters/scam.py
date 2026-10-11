@@ -5,12 +5,10 @@ are fixed human-readable labels, never quoted text, so nothing from a body is ev
 """
 
 import re
-from collections.abc import Iterable
 from dataclasses import dataclass, field
 
 from app.filters.auth_check import DEFAULT_BRANDS, AuthVerdict, check_authenticity
 from app.ingest.mime import ParsedMessage
-from app.ingest.query import sender_matches
 
 QUARANTINE_THRESHOLD = 4
 
@@ -94,22 +92,15 @@ _COMPANY_CLAIM_RE = re.compile(
 )
 
 
-SPOOFED_TRACKED_REASON = "Claims to be an always-track sender but failed authentication"
-
-
 @dataclass
 class ScamVerdict:
     score: int = 0
     reasons: list[str] = field(default_factory=list)
     auth: AuthVerdict | None = None
-    tracked: bool = False  # the sender is on the user's "always turn into tasks" list
-    trusted_tracked: bool = (
-        False  # ...and passed authentication, so the scam heuristics are skipped
-    )
 
     @property
     def quarantine(self) -> bool:
-        return self.score >= QUARANTINE_THRESHOLD and not self.trusted_tracked
+        return self.score >= QUARANTINE_THRESHOLD
 
     def add(self, weight: int, reason: str) -> None:
         self.score += weight
@@ -129,29 +120,12 @@ def _claims_company(message: ParsedMessage, brand_hit: bool) -> bool:
     return bool(_COMPANY_CLAIM_RE.search(f"{display}\n{message.body_text}"))
 
 
-def is_trusted_tracked(
-    message: ParsedMessage,
-    always_track: Iterable[str],
-    brands: dict[str, tuple[str, ...]] = DEFAULT_BRANDS,
-) -> bool:
-    """On the user's always-track list AND authenticated (dmarc pass, or spf + dkim pass)."""
-    if not sender_matches(message.sender, always_track):
-        return False
-    return check_authenticity(message.sender, message.authentication_results, brands).trusted
-
-
 def score_message(
     message: ParsedMessage,
     brands: dict[str, tuple[str, ...]] = DEFAULT_BRANDS,
-    always_track: Iterable[str] = (),
 ) -> ScamVerdict:
     auth = check_authenticity(message.sender, message.authentication_results, brands)
-    tracked = sender_matches(message.sender, always_track)
-    if tracked and auth.trusted:
-        # Legitimate portals mention fees and deadlines; the user asked for this sender, and
-        # authentication shows it really is them. Skip the scam-phrase heuristics.
-        return ScamVerdict(auth=auth, tracked=True, trusted_tracked=True)
-    verdict = ScamVerdict(auth=auth, tracked=tracked)
+    verdict = ScamVerdict(auth=auth)
     text = f"{message.subject}\n{message.body_text}"
 
     if _has_fee_request(text):
@@ -171,6 +145,4 @@ def score_message(
         verdict.add(
             W_FREE_MAIL_COMPANY, "Claims to be a company but sends from a free-mail address"
         )
-    if tracked:  # on the list but failed authentication: possibly someone pretending to be them
-        verdict.reasons.append(SPOOFED_TRACKED_REASON)
     return verdict

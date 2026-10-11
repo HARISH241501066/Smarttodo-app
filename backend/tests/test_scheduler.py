@@ -515,7 +515,7 @@ def add_user(session, email, digest_hour=None):
     session.add(u)
     session.flush()
     if digest_hour is not None:
-        session.add(UserSettings(user_id=u.id, denylist=[], allowlist=[], digest_hour=digest_hour))
+        session.add(UserSettings(user_id=u.id, digest_hour=digest_hour))
     session.commit()
     return u
 

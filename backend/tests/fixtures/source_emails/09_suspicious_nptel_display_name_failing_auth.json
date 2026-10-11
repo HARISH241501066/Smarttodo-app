@@ -1,12 +1,12 @@
 {
-  "id": "tri12",
-  "threadId": "thr-tri12",
+  "id": "src09",
+  "threadId": "thr-src09",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767268800000",
+  "internalDate": "1767258000000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,15 +15,15 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Your certificate is ready"
+        "value": "Assignment is live - act now"
       },
       {
         "name": "From",
-        "value": "NPTEL <noreply@nptel.ac.in>"
+        "value": "NPTEL <support@nptel-help.example>"
       },
       {
         "name": "Authentication-Results",
-        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+        "value": "mx.google.com; spf=fail; dkim=none; dmarc=fail"
       },
       {
         "name": "Content-Type",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 79,
-      "data": "Q29uZ3JhdHVsYXRpb25zISBZb3VyIGNlcnRpZmljYXRlIGhhcyBiZWVuIGlzc3VlZCBhbmQgaXMgYXZhaWxhYmxlIHRvIGRvd25sb2FkLg"
+      "size": 77,
+      "data": "VGhlIGFzc2lnbm1lbnQgaXMgbGl2ZS4gTG9nIGluIGF0IGh0dHBzOi8vbnB0ZWwtaGVscC5leGFtcGxlL2xvZ2luIHRvIHN1Ym1pdC4"
     }
   }
 }

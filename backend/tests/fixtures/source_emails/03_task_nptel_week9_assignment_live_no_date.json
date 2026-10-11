@@ -1,12 +1,12 @@
 {
-  "id": "tri16",
-  "threadId": "thr-tri16",
+  "id": "src03",
+  "threadId": "thr-src03",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767283200000",
+  "internalDate": "1767236400000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,7 +15,7 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Exam registration"
+        "value": "Week 9 content & Assignment is live"
       },
       {
         "name": "From",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 95,
-      "data": "UmVnaXN0cmF0aW9uIGNsb3NlcyBvbiAzMCBKYW4gMjAyNi4gUmVnaXN0ZXIgYXQgaHR0cHM6Ly9leGFtZm9ybS5ucHRlbC5hYy5pbi9yZWdpc3RyYXRpb24vYXBwbHk"
+      "size": 157,
+      "data": "RGVhciBsZWFybmVyLCB0aGUgV2VlayA5IGNvbnRlbnQgYW5kIHRoZSBBc3NpZ25tZW50IGFyZSBub3cgbGl2ZSBvbiB0aGUgY291cnNlIHBhZ2UuCk9wZW4gaHR0cHM6Ly9vbmxpbmVjb3Vyc2VzLm5wdGVsLmFjLmluL25vYzI2X2NzMTAvYXNzaWdubWVudC85IHRvIGJlZ2luLg"
     }
   }
 }

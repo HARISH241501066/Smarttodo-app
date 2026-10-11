@@ -131,7 +131,9 @@ def test_defaults(engine):
         conn.execute(text("INSERT INTO user_settings (user_id) VALUES (:u)"), {"u": uid})
         task = conn.execute(text("SELECT source, priority, status FROM tasks")).one()
         assert tuple(task) == ("other", "regular", "open")
-        s = conn.execute(text("SELECT llm_enabled, digest_hour, denylist FROM user_settings")).one()
+        s = conn.execute(
+            text("SELECT llm_enabled, digest_hour, block_senders FROM user_settings")
+        ).one()
         assert tuple(s) == (False, 8, [])
         assert conn.execute(text("SELECT needs_reauth FROM users")).scalar_one() is False
 
@@ -206,8 +208,6 @@ def test_every_check_constraint_in_db_is_covered(engine):
         "ck_quarantine_status",
         "ck_processed_messages_decision",
         "ck_tasks_link_type",
-        "ck_updates_source",
-        "ck_updates_link_type",
         "ck_reminders_kind",
         "ck_notifications_kind",
     }

@@ -1,0 +1,98 @@
+{
+  "01_task_digii_new_quiz_table": {
+    "kind": "task",
+    "deadline": "2026-10-18T18:29:00+00:00",
+    "link": "https://app.digii.example/student/quiz/start?quizId=9",
+    "id": "src01"
+  },
+  "02_drop_digii_you_have_submitted": {
+    "kind": "drop",
+    "deadline": null,
+    "link": null,
+    "id": "src02"
+  },
+  "03_task_nptel_week9_assignment_live_no_date": {
+    "kind": "task",
+    "deadline": null,
+    "link": "https://onlinecourses.nptel.ac.in/noc26_cs10/assignment/9",
+    "id": "src03"
+  },
+  "04_task_hackathon_unknown_sender_with_deadline": {
+    "kind": "task",
+    "deadline": "2026-10-25T18:29:00+00:00",
+    "link": "https://hackclub.example/apply",
+    "id": "src04"
+  },
+  "05_drop_hackathon_no_deadline": {
+    "kind": "drop",
+    "deadline": null,
+    "link": null,
+    "id": "src05"
+  },
+  "06_suspicious_hackathon_fee_scam": {
+    "kind": "suspicious",
+    "deadline": null,
+    "link": null,
+    "id": "src06"
+  },
+  "07_drop_hackathon_unauthenticated": {
+    "kind": "drop",
+    "deadline": null,
+    "link": null,
+    "id": "src07"
+  },
+  "08_drop_hackathon_blocked_sender": {
+    "kind": "drop",
+    "deadline": null,
+    "link": null,
+    "id": "src08"
+  },
+  "09_suspicious_nptel_display_name_failing_auth": {
+    "kind": "suspicious",
+    "deadline": null,
+    "link": null,
+    "id": "src09"
+  },
+  "10_suspicious_source_domain_failing_auth": {
+    "kind": "suspicious",
+    "deadline": null,
+    "link": null,
+    "id": "src10"
+  },
+  "11_suspicious_fakenptel_lookalike_domain": {
+    "kind": "suspicious",
+    "deadline": null,
+    "link": null,
+    "id": "src11"
+  },
+  "12_ignore_source_otp": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "src12"
+  },
+  "13_ignore_source_signin_link": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "src13"
+  },
+  "14_drop_source_certificate_issued": {
+    "kind": "drop",
+    "deadline": null,
+    "link": null,
+    "id": "src14"
+  },
+  "15_drop_source_announcement_no_cue": {
+    "kind": "drop",
+    "deadline": null,
+    "link": null,
+    "id": "src15"
+  },
+  "16_review_source_two_conflicting_deadlines": {
+    "kind": "review",
+    "deadline": null,
+    "link": null,
+    "id": "src16"
+  }
+}

@@ -31,7 +31,7 @@ _PATH_KEYWORDS = re.compile(
     r"assignment|quiz|exam|form|apply|register|submit|course", re.IGNORECASE
 )
 _TEXT_KEYWORDS = re.compile(
-    r"submit|apply|start|attempt|quiz|assignment|click\s+here", re.IGNORECASE
+    r"submit|apply|register|start|attempt|take|quiz|assignment|click\s+here", re.IGNORECASE
 )
 _SECOND_LEVEL = {"ac", "co", "edu", "gov", "org", "com", "net"}
 

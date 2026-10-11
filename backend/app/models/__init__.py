@@ -1,7 +1,6 @@
 from app.models.base import (
     Base,
     CalendarOrphan,
-    EmailUpdate,
     IngestFailure,
     Notification,
     ProcessedMessage,
@@ -18,7 +17,6 @@ from app.models.base import (
 __all__ = [
     "Base",
     "CalendarOrphan",
-    "EmailUpdate",
     "IngestFailure",
     "Notification",
     "ProcessedMessage",

@@ -127,7 +127,7 @@ def main() -> None:
 
 
 def seed(url: str) -> dict:
-    from app.models import EmailUpdate, Notification, Quarantine, Task, User, UserSettings
+    from app.models import Notification, Quarantine, Task, User, UserSettings
     from app.security import sign
 
     now = datetime.now(UTC)
@@ -137,7 +137,16 @@ def seed(url: str) -> dict:
         user = User(email="e2e@example.test")
         s.add(user)
         s.flush()
-        s.add(UserSettings(user_id=user.id, denylist=["linkedin.com", "naukri.com"], allowlist=[]))
+        s.add(
+            UserSettings(
+                user_id=user.id,
+                sources=[
+                    {"name": "NPTEL", "type": "nptel", "senders": ["nptel.ac.in"]},
+                    {"name": "Digii", "type": "digii", "senders": ["digii.example"]},
+                    {"name": "Internship", "type": "internship", "senders": []},
+                ],
+            )
+        )
 
         def task(key, title, **kw) -> Task:
             t = Task(user_id=user.id, title=title, status="open", **kw)
@@ -146,7 +155,7 @@ def seed(url: str) -> dict:
             ids[key] = t.id
             return t
 
-        task("nptel", "Submit NPTEL Assignment 5", source="nptel", priority="urgent",
+        task("nptel", "Submit NPTEL Assignment 5", source="nptel", source_name="NPTEL", priority="urgent",
              deadline=now + timedelta(hours=30), confidence=0.9,
              link="https://onlinecourses.nptel.ac.in/noc26_cs10/assignment/5",
              link_type="action", link_confidence=0.83, source_ref="seed-nptel")  # fmt: skip
@@ -157,14 +166,15 @@ def seed(url: str) -> dict:
              deadline=now + timedelta(days=10), confidence=0.9,
              link="https://mail.google.com/mail/u/0/#all/seedcircular", link_type="gmail",
              link_confidence=0.0, source_ref="seedcircular")  # fmt: skip
-        task("tracked", "Statement ready (tracked sender)", source="tracked", priority="important",
-             confidence=1.0, link="https://mail.google.com/mail/u/0/#all/seedtracked",
-             link_type="gmail", link_confidence=0.0, source_ref="seedtracked")  # fmt: skip
-        task("edit", "Edit me", source="manual", priority="regular", confidence=1.0)
+        task("digii", "Digii quiz without a date", source="digii", source_name="Digii",
+             priority="important", link="https://mail.google.com/mail/u/0/#all/seeddigii",
+             link_type="gmail", link_confidence=0.0, source_ref="seeddigii")  # fmt: skip
+        task("edit", "Edit me", source="manual", priority="regular", confidence=1.0,
+             user_confirmed=True)  # fmt: skip
         task("delete", "Delete me", source="manual", priority="regular", confidence=1.0,
-             link="https://example.com/delete-me", link_type="action", link_confidence=1.0)  # fmt: skip
+             user_confirmed=True, link="https://example.com/delete-me", link_type="action", link_confidence=1.0)  # fmt: skip
         task("done", "Mark me done", source="manual", priority="regular", confidence=1.0,
-             link="https://example.com/done-me", link_type="action", link_confidence=1.0)  # fmt: skip
+             user_confirmed=True, link="https://example.com/done-me", link_type="action", link_confidence=1.0)  # fmt: skip
 
         def review(key, title, sender=None, ref=None, **kw) -> None:
             ref = ref or key
@@ -176,6 +186,11 @@ def seed(url: str) -> dict:
         review("review_confirm", "Workshop invite (confirm me)", "events@college.example.edu")
         review("review_edit", "Seminar notice (edit me)", "events@college.example.edu")
         review("review_dismiss", "Newsletter digest (dismiss me)", "events@college.example.edu")
+        review(
+            "review_stays",
+            "Two different deadlines (stays in review)",
+            "office@college.example.edu",
+        )
         # a sender with several items: "Confirm all from this sender"
         for i in range(1, 4):
             review(
@@ -184,37 +199,6 @@ def seed(url: str) -> dict:
         # another one: "Dismiss all from this sender"
         for i in range(1, 3):
             review(f"bulk_dismiss_{i}", f"Promo {i} (bulk dismiss)", "bulk-b@promo.example.test")
-        # items the re-sort button can really re-read (the fake Gmail below has these messages)
-        review("resort_task", "Re-sort: assignment is live", None, ref="tri01")
-        review("resort_update", "Re-sort: quiz summary", None, ref="tri02")
-        review("resort_ignore", "Re-sort: your login code", None, ref="tri04")
-        review("resort_stays", "Re-sort: score and assignment cues", None, ref="tri18")
-        review("resort_gone", "Re-sort: deleted from Gmail", None, ref="deleted-from-gmail")
-
-        for key, title, source, minutes, link, link_type in (
-            (
-                "update_quiz",
-                "Week 8 quiz summary and score",
-                "nptel",
-                30,
-                "https://onlinecourses.nptel.ac.in/noc26_cs10/summary/8",
-                "action",
-            ),
-            (
-                "update_cert",
-                "Your NPTEL certificate has been issued",
-                "nptel",
-                300,
-                "https://mail.google.com/mail/u/0/#all/seedcert",
-                "gmail",
-            ),
-            ("update_notice", "Library timings during exams", "college", 1500, None, None),
-        ):
-            u = EmailUpdate(user_id=user.id, message_id=f"seed-{key}", title=title, source=source,
-                            link=link, link_type=link_type, received_at=now - timedelta(minutes=minutes))  # fmt: skip
-            s.add(u)
-            s.flush()
-            ids[key] = u.id
 
         reasons = ["Asks for a registration, processing or similar fee",
                    "Display name claims to be nptel but the sender domain differs"]  # fmt: skip
@@ -297,10 +281,10 @@ def serve(state: dict) -> None:
         {"name": "Authentication-Results", "value": "mx.google.com; dmarc=pass"}
     )
     messages = {raw["id"]: raw}
-    manifest = json.loads((FIXTURE_DIR / "triage_emails" / "expected.manifest").read_text())
-    for name, meta in manifest.items():  # emails the review re-sort can read again
+    manifest = json.loads((FIXTURE_DIR / "source_emails" / "expected.manifest").read_text())
+    for name, meta in manifest.items():  # what "Rebuild from sources" reads
         messages[meta["id"]] = json.loads(
-            (FIXTURE_DIR / "triage_emails" / f"{name}.json").read_text()
+            (FIXTURE_DIR / "source_emails" / f"{name}.json").read_text()
         )
     fake_gmail = FakeGmailApi(messages)
     sender = RecordingSender()

@@ -1,12 +1,12 @@
 {
-  "id": "tri02",
-  "threadId": "thr-tri02",
+  "id": "src16",
+  "threadId": "thr-src16",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767232800000",
+  "internalDate": "1767283200000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,7 +15,7 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Quiz summary / score"
+        "value": "Assignment 4 reminder"
       },
       {
         "name": "From",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 70,
-      "data": "WW91ciBxdWl6IHN1bW1hcnkgaXMgcmVhZHkuIFlvdSBzY29yZWQgOCBvdXQgb2YgMTAgaW4gdGhlIFdlZWsgOCBxdWl6Lg"
+      "size": 77,
+      "data": "U3VibWl0IGJlZm9yZSB0aGUgbGFzdCBkYXRlOiAxMiBOb3YgMjAyNi4KTGFzdCBkYXRlIHdpdGggYSBmaW5lOiAyOCBEZWMgMjAyNi4"
     }
   }
 }

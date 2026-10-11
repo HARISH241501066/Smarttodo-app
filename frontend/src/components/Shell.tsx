@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useApp } from "@/components/AppProvider";
-import { GearIcon, InboxIcon, ListIcon, NewsIcon, ShieldIcon } from "@/components/icons";
+import { GearIcon, InboxIcon, ListIcon, ShieldIcon } from "@/components/icons";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { InstallButton } from "@/components/InstallButton";
@@ -20,11 +20,10 @@ interface Tab {
 /** Header with the bell and theme toggle; navigation is a bottom bar on phones, inline from `sm`. */
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { me, reviewCount, suspiciousCount, updatesCount } = useApp();
+  const { me, reviewCount, suspiciousCount } = useApp();
 
   const tabs: Tab[] = [
     { href: "/", label: "Tasks", Icon: ListIcon },
-    { href: "/updates", label: "Updates", Icon: NewsIcon, count: updatesCount },
     { href: "/review", label: "Needs review", short: "Review", Icon: InboxIcon, count: reviewCount },
     { href: "/suspicious", label: "Suspicious", Icon: ShieldIcon, count: suspiciousCount },
     { href: "/settings", label: "Settings", Icon: GearIcon },

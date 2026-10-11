@@ -12,7 +12,6 @@ import respx
 from sqlalchemy import func, select, text
 
 from app.filters.pipeline import make_filter_sink
-from app.filters.task_stage import make_task_stage
 from app.ingest.mime import parse_message
 from app.ingest.sync import run_sync
 from app.models import Task, User, UserSettings
@@ -27,7 +26,15 @@ def user(db_session):
     u = User(email="me@example.test")
     db_session.add(u)
     db_session.flush()
-    db_session.add(UserSettings(user_id=u.id, denylist=[], allowlist=["college.example.edu"]))
+    db_session.add(
+        UserSettings(
+            user_id=u.id,
+            sources=[
+                {"name": "NPTEL", "type": "nptel", "senders": ["nptel.ac.in"]},
+                {"name": "College", "type": "custom", "senders": ["college.example.edu"]},
+            ],
+        )
+    )
     db_session.commit()
     return u
 
@@ -46,10 +53,8 @@ def clock(year=2026, month=1, day=1, hour=6):
 
 
 def sync(session, user, messages, now=None):
-    """Each call is a fresh backfill of exactly `messages`, in the given order."""
-    session.execute(text("UPDATE sync_state SET history_id = NULL"))
-    session.commit()
-    sink = make_filter_sink(session, make_task_stage(session, now or clock()))
+    """Each call syncs exactly `messages`, in the given order."""
+    sink = make_filter_sink(session, now or clock())
     return run_sync(user, session, FakeGmailApi(messages), sink)
 
 
@@ -85,16 +90,19 @@ HOUR = 3_600_000
 # ---------- creation ----------
 
 
-def test_fixtures_become_tasks_with_expected_fields(db_session, user):
-    result = sync(db_session, user, fixture_messages())
-    created = tasks(db_session, user)
+def test_quiz_fixture_becomes_a_task_with_expected_fields(db_session, user):
+    result = sync(db_session, user, {k: v for k, v in fixture_messages().items() if k == "task01"})
+    quiz = tasks(db_session, user)["task01"]
 
     assert result.failed == 0
-    # one task per message, except messages folded into an earlier task as updates
-    assert len(created) == len(fixture_messages())  # none of these fixtures is an update of another
-    quiz = created["task01"]
     assert quiz.title == "NPTEL: Week 5 quiz is live"
-    assert (quiz.source, quiz.link_type, quiz.status) == ("nptel", "action", "open")
+    assert (quiz.source, quiz.source_name, quiz.link_type, quiz.status) == (
+        "nptel",
+        "NPTEL",
+        "action",
+        "open",
+    )
+    assert quiz.user_confirmed is False
     assert quiz.link.endswith("unit?unit=5&assessment=20")
     assert quiz.confidence == 0.9
     assert quiz.deadline.astimezone(UTC).isoformat() == "2026-01-22T18:29:00+00:00"
@@ -102,19 +110,20 @@ def test_fixtures_become_tasks_with_expected_fields(db_session, user):
     assert quiz.notes is None  # the body is never stored
 
 
-def test_a_missing_deadline_gives_an_open_task_with_no_deadline_and_the_gmail_fallback(
-    db_session, user
-):
-    sync(db_session, user, {k: v for k, v in fixture_messages().items() if k == "task10"})
-    task = tasks(db_session, user)["task10"]
+def test_a_source_mail_without_a_date_is_an_open_task_with_the_gmail_fallback(db_session, user):
+    mail = raw_mail("n0", "Assignment 3", "The assignment is live. Details soon.", T0)
+    sync(db_session, user, {"n0": mail})
+    task = tasks(db_session, user)["n0"]
     assert (task.status, task.deadline, task.confidence) == ("open", None, None)
-    assert (task.link_type, task.link) == ("gmail", "https://mail.google.com/mail/u/0/#all/task10")
-    assert task.source == "college" and task.priority == "regular"
+    assert (task.link_type, task.link) == ("gmail", "https://mail.google.com/mail/u/0/#all/n0")
+    assert task.priority == "important"  # from a source the user chose
 
 
 def test_several_different_deadlines_go_to_review_with_the_earliest_filled_in(db_session, user):
-    sync(db_session, user, {k: v for k, v in fixture_messages().items() if k == "task15"})
-    task = tasks(db_session, user)["task15"]
+    body = "Last date: 12 Jan 2026.\nLast date with late fee: 20 Jan 2026."
+    mail = raw_mail("rv1", "Registration open", body, T0)
+    sync(db_session, user, {"rv1": mail})
+    task = tasks(db_session, user)["rv1"]
     # 12 Jan and 20 Jan are ambiguous, so a person confirms; the earliest is pre-filled
     assert (task.status, task.confidence) == ("needs_review", 0.6)
     assert task.deadline.astimezone(UTC).day == 12
@@ -126,10 +135,23 @@ def test_deadline_within_48_hours_is_urgent(db_session, user):
     assert tasks(db_session, user)["u1"].priority == "urgent"
 
 
-def test_unknown_senders_become_source_other(db_session, user):
-    mail = raw_mail("o1", "Hello", "Deadline: 20 Jan 2026.", T0, sender="Ravi <ravi@gmail.com>")
+def test_keyword_mail_from_an_unknown_authenticated_sender_becomes_a_keyword_task(db_session, user):
+    mail = raw_mail(
+        "o1",
+        "Hackathon registration",
+        "Deadline: 20 Jan 2026.",
+        T0,
+        sender="Ravi <ravi@acme.example>",
+    )
     sync(db_session, user, {"o1": mail})
-    assert tasks(db_session, user)["o1"].source == "other"
+    task = tasks(db_session, user)["o1"]
+    assert (task.source, task.source_name) == ("keyword", "Hackathon")
+
+
+def test_unknown_senders_without_a_keyword_are_dropped(db_session, user):
+    mail = raw_mail("o2", "Hello", "Deadline: 20 Jan 2026.", T0, sender="Ravi <ravi@gmail.com>")
+    result = sync(db_session, user, {"o2": mail})
+    assert tasks(db_session, user) == {} and result.decisions == {"dropped": 1}
 
 
 def test_processing_a_message_twice_creates_one_task(db_session, user):
@@ -206,7 +228,7 @@ def test_same_subject_in_a_different_source_is_not_merged(db_session, user):
         "Registration open",
         "Last date: 22 Jan 2026.",
         T0 + HOUR,
-        sender="Ravi <ravi@gmail.com>",
+        sender="Dept <office@college.example.edu>",
     )
     sync(db_session, user, {"x1": a, "x2": b})
     assert db_session.scalar(select(func.count()).select_from(Task)) == 2
@@ -226,7 +248,11 @@ def test_done_tasks_are_not_reopened_by_a_similar_email(db_session, user):
 
 
 def test_an_extension_gives_a_deadline_to_an_earlier_task_that_had_none(db_session, user):
-    sync(db_session, user, {"r1": raw_mail("r1", "Assignment 3", "Details soon.", T0)})
+    sync(
+        db_session,
+        user,
+        {"r1": raw_mail("r1", "Assignment 3", "The assignment is live. Details soon.", T0)},
+    )
     first = tasks(db_session, user)["r1"]
     assert (first.status, first.deadline) == ("open", None)  # no deadline is not a reason to wait
     sync(

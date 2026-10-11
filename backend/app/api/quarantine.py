@@ -85,7 +85,7 @@ def rescue(
         raise HTTPException(502, "Gmail API error") from exc
 
     now = datetime.now(UTC)
-    task, created = ingest_message(session, user, parsed, now)
+    task, created = ingest_message(session, user, parsed, now, confirmed=True)
     if task is not None and created and task.status == "needs_review":
         # The user has looked at this email and vouched for it, so it goes straight to their tasks
         # rather than into the review queue (no deadline was found, which is why it would be there).

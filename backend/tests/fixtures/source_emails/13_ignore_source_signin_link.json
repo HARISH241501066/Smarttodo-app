@@ -1,6 +1,6 @@
 {
-  "id": "tri13",
-  "threadId": "thr-tri13",
+  "id": "src13",
+  "threadId": "thr-src13",
   "labelIds": [
     "INBOX",
     "UNREAD"
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Holiday on Friday"
+        "value": "Your secure sign-in link"
       },
       {
         "name": "From",
-        "value": "Dept Office <office@college.example.edu>"
+        "value": "Digii <no-reply@digii.example>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 84,
-      "data": "VGhlIGNvbGxlZ2Ugd2lsbCByZW1haW4gY2xvc2VkIG9uIEZyaWRheSBmb3IgdGhlIGxvY2FsIGZlc3RpdmFsLiBObyBhY3Rpb24gcmVxdWlyZWQu"
+      "size": 95,
+      "data": "VXNlIHRoZSBsaW5rIGJlbG93IHRvIHNpZ24gaW4uIEl0IGV4cGlyZXMgaW4gMTUgbWludXRlcy4KaHR0cHM6Ly9hcHAuZGlnaWkuZXhhbXBsZS9tYWdpYy9hYmMxMjM"
     }
   }
 }

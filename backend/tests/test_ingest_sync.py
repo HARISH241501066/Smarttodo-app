@@ -1,19 +1,23 @@
 import logging
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from googleapiclient.errors import HttpError
 from sqlalchemy import select, text
 
-from app.ingest.gmail import HistoryExpired, RateLimited
-from app.ingest.query import BASE_QUERY, DEFAULT_DENYLIST, build_query
+from app.filters.pipeline import record_decision
+from app.ingest.gmail import RateLimited
+from app.ingest.query import build_query
 from app.ingest.sync import (
     LOCK_NAMESPACE,
     MAX_RETRY_ATTEMPTS,
     SyncInProgress,
+    get_or_create_settings,
     run_sync,
 )
 from app.models import IngestFailure, SyncState, Task, User, UserSettings
-from tests.gmail_fakes import FakeGmailApi, fixtures_by_number, history_page
+from app.sources import DEFAULT_KEYWORDS, DEFAULT_SOURCES, load_sources
+from tests.gmail_fakes import FakeGmailApi, fixtures_by_number
 from tests.test_ingest_gmail import http_error
 
 
@@ -26,21 +30,20 @@ def user(db_session):
 
 
 class Collector:
-    """A sink that records delivered message ids."""
+    """A sink that records delivered message ids (and, like the real sink, the decision)."""
 
-    def __init__(self, fail_on=()):
+    def __init__(self, fail_on=(), record=False, session=None):
         self.ids: list[str] = []
         self.fail_on = set(fail_on)
+        self.record = record
+        self.session = session
 
     def __call__(self, user, message):
         if message.message_id in self.fail_on:
             raise ValueError("sink exploded")
         self.ids.append(message.message_id)
-
-
-def set_history_id(session, user, value):
-    session.add(SyncState(user_id=user.id, history_id=value))
-    session.commit()
+        if self.record:
+            record_decision(self.session, user.id, message.message_id, "dropped", "test")
 
 
 def failures(session, user) -> dict[str, IngestFailure]:
@@ -48,54 +51,76 @@ def failures(session, user) -> dict[str, IngestFailure]:
     return {r.message_id: r for r in rows}
 
 
-# ---------- backfill ----------
+def queries_of(api) -> list[str]:
+    return [c[1] for c in api.calls if c[0] == "list"]
 
 
-def test_first_sync_is_a_backfill_that_stores_the_cursor(db_session, user):
+# ---------- the query ----------
+
+
+def test_first_sync_looks_back_30_days_and_creates_default_settings(db_session, user):
     api = FakeGmailApi(fixtures_by_number(1, 2, 3))
     sink = Collector()
 
     result = run_sync(user, db_session, api, sink)
 
-    assert result.mode == "backfill" and result.history_reset is False
+    assert result.mode == "backfill"
     assert (result.discovered, result.fetched, result.delivered) == (3, 3, 3)
     assert sink.ids == ["msg001", "msg002", "msg003"]
-    state = db_session.get(SyncState, user.id)
-    assert state.history_id == "1000" and state.last_success_at is not None
-    assert result.history_id == "1000"
+    assert db_session.get(SyncState, user.id).last_success_at is not None
+    settings = db_session.get(UserSettings, user.id)
+    assert settings.watch_keywords == DEFAULT_KEYWORDS
+    assert [s["name"] for s in settings.sources] == [s["name"] for s in DEFAULT_SOURCES]
+    assert queries_of(api) == [
+        "newer_than:30d -in:spam -in:trash (from:nptel.ac.in OR hackathon OR ideathon OR datathon)"
+    ]
 
 
-def test_backfill_captures_cursor_before_listing(db_session, user):
+def test_query_holds_only_source_senders_and_keywords(db_session, user):
+    db_session.add(
+        UserSettings(
+            user_id=user.id,
+            sources=[
+                {"name": "NPTEL", "type": "nptel", "senders": ["Nptel.ac.in"]},
+                {"name": "Digii", "type": "digii", "senders": ["digiicampus.example", "a@b.test"]},
+                {"name": "Bad", "type": "custom", "senders": ["x OR in:anywhere", "-in:inbox"]},
+            ],
+            watch_keywords=["Hackathon", "smart india", "evil) OR (from:boss@work.test"],
+            block_senders=["spam.test"],
+        )
+    )
+    db_session.commit()
+    api = FakeGmailApi(fixtures_by_number(1))
+    run_sync(user, db_session, api, Collector())
+    query = queries_of(api)[0]
+    assert query == (
+        "newer_than:30d -in:spam -in:trash (from:nptel.ac.in OR from:digiicampus.example OR "
+        'from:a@b.test OR hackathon OR "smart india")'
+    )
+    for absent in ("category", "promotions", "inbox", "spam.test", "boss"):
+        assert absent not in query
+
+
+def test_nothing_to_look_for_means_nothing_is_fetched(db_session, user):
+    db_session.add(UserSettings(user_id=user.id, sources=[], watch_keywords=[]))
+    db_session.commit()
     api = FakeGmailApi(fixtures_by_number(1, 2))
-    run_sync(user, db_session, api, Collector())
-    kinds = [c[0] for c in api.calls]
-    assert kinds.index("profile") < kinds.index("list")
+    sink = Collector()
+    result = run_sync(user, db_session, api, sink)
+    assert api.calls == [] and sink.ids == [] and result.discovered == 0
+    assert result.query is None
 
 
-def test_backfill_uses_default_denylist_and_creates_settings_row(db_session, user):
-    api = FakeGmailApi(fixtures_by_number(1))
-    run_sync(user, db_session, api, Collector())
-    queries = [c[1] for c in api.calls if c[0] == "list"]
-    assert queries == [build_query(DEFAULT_DENYLIST)]
-    assert "-from:linkedin.com" in queries[0] and "-from:naukri.com" in queries[0]
-    assert db_session.get(UserSettings, user.id).denylist == list(DEFAULT_DENYLIST)
+def test_build_query_is_none_without_senders_or_keywords():
+    assert (
+        build_query(load_sources([{"name": "Digii", "type": "digii", "senders": []}]), []) is None
+    )
 
 
-def test_backfill_honours_users_custom_denylist(db_session, user):
-    db_session.add(UserSettings(user_id=user.id, denylist=["Foo.com", "x OR in:inbox", 7]))
-    db_session.commit()
-    api = FakeGmailApi(fixtures_by_number(1))
-    run_sync(user, db_session, api, Collector())
-    query = next(c[1] for c in api.calls if c[0] == "list")
-    assert query == f"{BASE_QUERY} -from:foo.com"
-
-
-def test_user_who_cleared_denylist_gets_no_from_clauses(db_session, user):
-    db_session.add(UserSettings(user_id=user.id, denylist=[]))
-    db_session.commit()
-    api = FakeGmailApi(fixtures_by_number(1))
-    run_sync(user, db_session, api, Collector())
-    assert next(c[1] for c in api.calls if c[0] == "list") == BASE_QUERY
+def test_get_or_create_settings_is_stable(db_session, user):
+    first = get_or_create_settings(db_session, user.id)
+    again = get_or_create_settings(db_session, user.id)
+    assert first is again
 
 
 def test_backfill_follows_pagination(db_session, user):
@@ -107,13 +132,12 @@ def test_backfill_follows_pagination(db_session, user):
     assert result.delivered == 5
 
 
-def test_backfill_post_filter_is_a_safety_net(db_session, user):
-    # 15 = promotions label, 16 = spam label, 17/21 = denylisted senders, 24 = subdomain of one.
-    api = FakeGmailApi(fixtures_by_number(1, 15, 16, 17, 21, 24))
+def test_spam_is_never_delivered_even_if_listed(db_session, user):
+    api = FakeGmailApi(fixtures_by_number(1, 15, 16))  # 16 has the SPAM label
     sink = Collector()
     result = run_sync(user, db_session, api, sink)
-    assert sink.ids == ["msg001"]
-    assert (result.delivered, result.skipped) == (1, 5)
+    assert "msg016" not in sink.ids and "msg001" in sink.ids
+    assert result.skipped >= 1
 
 
 def test_message_deleted_before_fetch_is_skipped_not_failed(db_session, user):
@@ -123,126 +147,70 @@ def test_message_deleted_before_fetch_is_skipped_not_failed(db_session, user):
     assert failures(db_session, user) == {}
 
 
-# ---------- incremental ----------
+# ---------- repeat syncs ----------
 
 
-def test_second_sync_is_incremental_and_creates_no_duplicates(db_session, user):
+def test_second_sync_skips_handled_mail_before_fetching(db_session, user):
     api = FakeGmailApi(fixtures_by_number(1, 2, 3))
-    sink = Collector()
-
-    first = run_sync(user, db_session, api, sink)
-    api.history_now = "1001"
-    second = run_sync(user, db_session, api, sink)
-    third = run_sync(user, db_session, api, sink)
-
-    assert first.mode == "backfill" and second.mode == "incremental"
-    assert second.delivered == 0 and third.delivered == 0
-    assert sorted(sink.ids) == ["msg001", "msg002", "msg003"]  # each exactly once
-    assert len(sink.ids) == len(set(sink.ids))
-    assert [c for c in api.calls if c[0] == "history"][0][1] == "1000"
-    assert db_session.get(SyncState, user.id).history_id == "1001"
-    assert sum(1 for c in api.calls if c[0] == "list") == 1  # only the first run listed
-
-
-def test_incremental_picks_up_only_new_messages(db_session, user):
-    api = FakeGmailApi(fixtures_by_number(1, 2, 3))
-    sink = Collector()
+    sink = Collector(record=True, session=db_session)
     run_sync(user, db_session, api, sink)
+    db_session.commit()
+    api.calls.clear()
 
-    api.messages.update(fixtures_by_number(4))
-    api.history_pages = [history_page(["msg004"], "1010")]
+    second = run_sync(user, db_session, api, sink)
+
+    assert api.gets() == []  # nothing downloaded again
+    assert (second.discovered, second.fetched, second.delivered, second.skipped) == (3, 0, 0, 3)
+    assert sorted(sink.ids) == ["msg001", "msg002", "msg003"]  # each exactly once
+
+
+def test_new_mail_is_the_only_thing_fetched_next_time(db_session, user):
+    api = FakeGmailApi(fixtures_by_number(1, 2, 3, 4), listing=["msg001", "msg002", "msg003"])
+    sink = Collector(record=True, session=db_session)
+    run_sync(user, db_session, api, sink)
+    db_session.commit()
+    api.listing.append("msg004")
+    api.calls.clear()
     result = run_sync(user, db_session, api, sink)
-
-    assert result.mode == "incremental" and result.delivered == 1
-    assert sink.ids == ["msg001", "msg002", "msg003", "msg004"]
-    assert db_session.get(SyncState, user.id).history_id == "1010"
+    assert api.gets() == ["msg004"] and result.delivered == 1
 
 
-def test_incremental_dedupes_repeated_ids_and_follows_pagination(db_session, user):
-    set_history_id(db_session, user, "500")
-    api = FakeGmailApi(fixtures_by_number(1, 2, 3))
-    api.history_pages = [
-        history_page(["msg001", "msg002", "msg001"], "600"),
-        history_page(["msg002", "msg003"], "700"),
-    ]
-    sink = Collector()
-    result = run_sync(user, db_session, api, sink)
-
-    assert api.gets() == ["msg001", "msg002", "msg003"]  # one fetch per unique id
-    assert sink.ids == ["msg001", "msg002", "msg003"]
-    assert [c[2] for c in api.calls if c[0] == "history"] == [None, "1"]
-    assert result.history_id == "700"
-    assert not any(c[0] in ("profile", "list") for c in api.calls)
+def test_full_run_handles_mail_that_was_already_decided(db_session, user):
+    api = FakeGmailApi(fixtures_by_number(1, 2))
+    sink = Collector(record=True, session=db_session)
+    run_sync(user, db_session, api, sink)
+    db_session.commit()
+    result = run_sync(user, db_session, api, sink, full=True)
+    assert result.delivered == 2 and result.mode == "backfill"
 
 
-def test_incremental_skips_excluded_labels_without_fetching(db_session, user):
-    set_history_id(db_session, user, "500")
-    api = FakeGmailApi(fixtures_by_number(1, 15, 16, 17, 24))
-    api.history_pages = [
-        history_page(
-            [
-                ("msg001", ["INBOX"]),
-                ("msg015", ["INBOX", "CATEGORY_PROMOTIONS"]),
-                ("msg016", ["SPAM"]),
-                ("msg017", ["INBOX"]),  # linkedin: only knowable after fetching
-                ("msg024", ["INBOX"]),  # linkedin subdomain
-            ],
-            "600",
-        )
-    ]
-    sink = Collector()
-    result = run_sync(user, db_session, api, sink)
-
-    assert sink.ids == ["msg001"]
-    assert "msg015" not in api.gets() and "msg016" not in api.gets()
-    assert {"msg017", "msg024"} <= set(api.gets())
-    assert (result.delivered, result.skipped) == (1, 4)
-
-
-# ---------- expired history ----------
-
-
-def test_history_404_falls_back_to_backfill(db_session, user):
-    set_history_id(db_session, user, "500")
-    api = FakeGmailApi(fixtures_by_number(1, 2), history_id="2000")
-    api.history_error = HistoryExpired("500")
-    sink = Collector()
-
-    result = run_sync(user, db_session, api, sink)
-
-    assert result.mode == "backfill" and result.history_reset is True
-    assert sink.ids == ["msg001", "msg002"]
-    kinds = [c[0] for c in api.calls]
-    assert kinds[0] == "history" and kinds.index("profile") < kinds.index("list")
-    assert db_session.get(SyncState, user.id).history_id == "2000"  # reset to the fresh cursor
-
-
-def test_history_404_from_real_wrapper_falls_back_to_backfill(db_session, user):
-    """End to end through GoogleGmailApi: HttpError 404 -> HistoryExpired -> backfill."""
-    from tests.test_ingest_gmail import make_api
-
-    set_history_id(db_session, user, "500")
-    api, service, _ = make_api(
-        [
-            http_error(404),  # history.list
-            {"historyId": "3000"},  # getProfile
-            {"messages": [{"id": "msg001"}]},  # messages.list
-            fixtures_by_number(1)["msg001"],  # messages.get
-        ]
+def test_later_syncs_look_back_only_as_far_as_needed(db_session, user):
+    db_session.add(
+        SyncState(user_id=user.id, last_success_at=datetime.now(UTC) - timedelta(hours=3))
     )
-    sink = Collector()
-    result = run_sync(user, db_session, api, sink)
-    assert result.history_reset and sink.ids == ["msg001"]
-    assert db_session.get(SyncState, user.id).history_id == "3000"
-
-
-def test_api_error_on_listing_aborts_without_touching_cursor(db_session, user):
-    set_history_id(db_session, user, "500")
+    db_session.commit()
     api = FakeGmailApi(fixtures_by_number(1))
-    api.history_error = http_error(500)
+    result = run_sync(user, db_session, api, Collector())
+    assert result.mode == "incremental"
+    assert queries_of(api)[0].startswith("newer_than:3d ")  # 1 day + 2 days of overlap
+
+
+def test_a_long_gap_is_capped_at_30_days(db_session, user):
+    db_session.add(
+        SyncState(user_id=user.id, last_success_at=datetime.now(UTC) - timedelta(days=90))
+    )
+    db_session.commit()
+    api = FakeGmailApi(fixtures_by_number(1))
+    run_sync(user, db_session, api, Collector())
+    assert queries_of(api)[0].startswith("newer_than:30d ")
+
+
+def test_api_error_on_listing_aborts_and_records_nothing(db_session, user):
+    api = FakeGmailApi(fixtures_by_number(1))
+    api.list_error = http_error(500)
     with pytest.raises(HttpError):
         run_sync(user, db_session, api, Collector())
-    assert db_session.get(SyncState, user.id).history_id == "500"
+    assert db_session.get(SyncState, user.id).last_success_at is None
     assert failures(db_session, user) == {}
 
 
@@ -268,7 +236,7 @@ def test_failing_messages_land_in_ingest_failures_and_batch_completes(db_session
     assert rows["msg004"].error.startswith("ValueError")
     assert rows["msg011"].error.startswith("MessageParseError")
     assert all(r.attempts == 1 and r.user_id == user.id for r in rows.values())
-    assert db_session.get(SyncState, user.id).history_id == "1000"  # run still finished
+    assert db_session.get(SyncState, user.id).last_success_at is not None  # run still finished
 
 
 def test_failure_messages_never_contain_email_content(db_session, user):
@@ -281,14 +249,14 @@ def test_failure_messages_never_contain_email_content(db_session, user):
 def test_failed_message_is_retried_next_sync_and_failure_cleared(db_session, user):
     api = FakeGmailApi(fixtures_by_number(1, 2))
     api.get_errors["msg002"] = RuntimeError("temporary")
-    sink = Collector()
+    sink = Collector(record=True, session=db_session)
     run_sync(user, db_session, api, sink)
     assert set(failures(db_session, user)) == {"msg002"}
 
     del api.get_errors["msg002"]
     result = run_sync(user, db_session, api, sink)
 
-    assert result.mode == "incremental" and result.delivered == 1
+    assert result.delivered == 1
     assert sink.ids == ["msg001", "msg002"]
     assert failures(db_session, user) == {}
 
@@ -296,7 +264,7 @@ def test_failed_message_is_retried_next_sync_and_failure_cleared(db_session, use
 def test_persistent_failure_counts_attempts_and_stops_after_the_limit(db_session, user):
     api = FakeGmailApi(fixtures_by_number(1, 2))
     api.get_errors["msg002"] = RuntimeError("always")
-    sink = Collector()
+    sink = Collector(record=True, session=db_session)
     for expected in range(1, MAX_RETRY_ATTEMPTS + 1):
         run_sync(user, db_session, api, sink)
         assert failures(db_session, user)["msg002"].attempts == expected
@@ -340,7 +308,7 @@ def test_failing_sink_rolls_back_its_own_writes_only(db_session, user):
 def test_rate_limit_defers_the_rest_without_failing_or_losing_anything(db_session, user):
     api = FakeGmailApi(fixtures_by_number(1, 2, 3, 4, 5))
     api.get_errors["msg003"] = RateLimited("quota")
-    sink = Collector()
+    sink = Collector(record=True, session=db_session)
 
     result = run_sync(user, db_session, api, sink)
 
@@ -351,11 +319,11 @@ def test_rate_limit_defers_the_rest_without_failing_or_losing_anything(db_sessio
     rows = failures(db_session, user)
     assert set(rows) == {"msg003", "msg004", "msg005"}
     assert all(r.attempts == 0 and "deferred" in r.error for r in rows.values())
-    assert db_session.get(SyncState, user.id).history_id == "1000"  # cursor still advances
+    assert db_session.get(SyncState, user.id).last_success_at is None  # not a clean run
 
     del api.get_errors["msg003"]
     second = run_sync(user, db_session, api, sink)
-    assert second.mode == "incremental" and second.deferred == 0
+    assert second.deferred == 0
     assert sink.ids == ["msg001", "msg002", "msg003", "msg004", "msg005"]  # each exactly once
     assert failures(db_session, user) == {}
 
@@ -383,7 +351,7 @@ def test_rate_limit_while_listing_aborts_and_leaves_cursor_alone(db_session, use
     api.list_error = RateLimited("quota")
     with pytest.raises(RateLimited):
         run_sync(user, db_session, api, Collector())
-    assert db_session.get(SyncState, user.id).history_id is None
+    assert db_session.get(SyncState, user.id).last_success_at is None
     assert failures(db_session, user) == {}
 
 

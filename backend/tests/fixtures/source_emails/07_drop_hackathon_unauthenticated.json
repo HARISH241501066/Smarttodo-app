@@ -1,6 +1,6 @@
 {
-  "id": "tri07",
-  "threadId": "thr-tri07",
+  "id": "src07",
+  "threadId": "thr-src07",
   "labelIds": [
     "INBOX",
     "UNREAD"
@@ -15,15 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Assignment 4 reminder"
+        "value": "Hackathon: register now"
       },
       {
         "name": "From",
-        "value": "NPTEL <noreply@nptel.ac.in>"
-      },
-      {
-        "name": "Authentication-Results",
-        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+        "value": "Hack Club <events@hackclub.example>"
       },
       {
         "name": "Content-Type",
@@ -31,8 +27,8 @@
       }
     ],
     "body": {
-      "size": 84,
-      "data": "TGFzdCBkYXRlIHRvIHN1Ym1pdDogMTIgSmFuIDIwMjYuCkxhdGUgcmVnaXN0cmF0aW9uIGVuZHMgb24gMjggRmViIDIwMjYgd2l0aCBhIGZpbmUu"
+      "size": 58,
+      "data": "T3VyIGhhY2thdGhvbiBpcyBvcGVuLiBMYXN0IGRhdGUgdG8gcmVnaXN0ZXI6IDI1IE9jdCAyMDI2Lg"
     }
   }
 }

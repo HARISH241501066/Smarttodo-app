@@ -1,12 +1,12 @@
 {
-  "id": "tri19",
-  "threadId": "thr-tri19",
+  "id": "src14",
+  "threadId": "thr-src14",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767294000000",
+  "internalDate": "1767276000000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Results declared for semester 4"
+        "value": "Your certificate is ready"
       },
       {
         "name": "From",
-        "value": "Dept Office <office@college.example.edu>"
+        "value": "NPTEL <noreply@nptel.ac.in>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 63,
-      "data": "VGhlIHJlc3VsdHMgYXJlIG91dC4gWW91IGNhbiB2aWV3IHlvdXIgc2NvcmVjYXJkIG9uIHRoZSBwb3J0YWwu"
+      "size": 79,
+      "data": "Q29uZ3JhdHVsYXRpb25zISBZb3VyIGNlcnRpZmljYXRlIGhhcyBiZWVuIGlzc3VlZCBhbmQgaXMgYXZhaWxhYmxlIHRvIGRvd25sb2FkLg"
     }
   }
 }

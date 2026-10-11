@@ -1,4 +1,4 @@
-"""Module 5 extraction logic: link collection, categories, deadlines, links, priority."""
+"""Extraction logic: link collection, deadlines, action links, priority."""
 
 import json
 from datetime import UTC, datetime, timedelta
@@ -6,14 +6,12 @@ from pathlib import Path
 
 import pytest
 
-from app.filters.categorize import categorize
 from app.filters.deadline import CONF_MANY, CONF_ONE, extract_deadline, priority_for
 from app.filters.links import gmail_fallback, pick_action_link
 from app.filters.task_stage import clean_title, same_topic
 from app.ingest.mime import Link, ParsedMessage, parse_message
 
 FIXTURES = Path(__file__).parent / "fixtures" / "task_emails"
-COLLEGE = ["college.example.edu"]
 RECEIVED = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)  # Thursday 11:30 IST
 
 
@@ -29,11 +27,7 @@ def load_cases():
 def run(message):
     now = message.received_at
     text = f"{message.subject}\n{message.body_text}"
-    return (
-        categorize(message, COLLEGE),
-        extract_deadline(text, message.received_at, now),
-        pick_action_link(message),
-    )
+    return extract_deadline(text, message.received_at, now), pick_action_link(message)
 
 
 def make(subject="Hi", sender="A <a@example.test>", body="", links=()):
@@ -56,29 +50,26 @@ def test_at_least_twenty_fixtures():
 
 def test_evaluation_set_meets_the_accuracy_targets():
     cases = load_cases()
-    category_ok = deadline_ok = link_ok = 0
+    deadline_ok = link_ok = 0
     misses = []
     for name, message, want in cases:
-        category, deadline, link = run(message)
+        deadline, link = run(message)
         got_deadline = deadline.deadline.isoformat() if deadline.deadline else None
         want_link = (
             gmail_fallback(message.message_id).url if want["link"] == "gmail" else want["link"]
         )
-        category_ok += category == want["category"]
         deadline_ok += got_deadline == want["deadline"]
         link_ok += link.url == want_link
         for label, got, exp in (
-            ("category", category, want["category"]),
             ("deadline", got_deadline, want["deadline"]),
             ("link", link.url, want_link),
         ):
             if got != exp:
                 misses.append(f"{name}: {label} got {got!r} want {exp!r}")
     total = len(cases)
-    print(f"\ncategories {category_ok}/{total} deadlines {deadline_ok}/{total}", end=" ")
+    print(f"\ndeadlines {deadline_ok}/{total}", end=" ")
     print(f"links {link_ok}/{total}")
     print("\n".join(misses))
-    assert category_ok == total, misses
     assert deadline_ok / total >= 0.9, misses
     assert link_ok / total >= 0.9, misses
 
@@ -126,7 +117,6 @@ def test_nptel_email_with_unsubscribe_social_and_quiz_links_picks_the_quiz():
 
 def test_google_form_email_stores_the_forms_link():
     message = parse_message(json.loads((FIXTURES / "05_gform_html_weekday.json").read_text()))
-    assert categorize(message, COLLEGE) == "gform"
     assert pick_action_link(message).url == (
         "https://docs.google.com/forms/d/e/1FAIpQLSdSynthetic/viewform"
     )
@@ -184,26 +174,6 @@ def test_brand_domain_and_subdomains_score_up():
 def test_a_bare_homepage_is_not_good_enough():
     message = make(sender="NPTEL <a@nptel.ac.in>", links=[Link("https://nptel.ac.in/", "NPTEL")])
     assert pick_action_link(message).link_type == "gmail"
-
-
-# ---------- categories ----------
-
-
-def test_category_rule_order_nptel_before_gform_before_internship():
-    form = Link("https://forms.gle/x")
-    assert categorize(make(subject="NPTEL internship", links=[form]), COLLEGE) == "nptel"
-    assert categorize(make(subject="Internship interview", links=[form]), COLLEGE) == "gform"
-    assert categorize(make(subject="Internship interview"), COLLEGE) == "internship"
-
-
-def test_college_requires_an_allowlisted_domain():
-    message = make(sender="Office <o@cse.college.example.edu>", subject="Timetable")
-    assert categorize(message, COLLEGE) == "college"
-    assert categorize(message, []) == "unknown"
-
-
-def test_nptel_by_sender_domain_without_the_word_in_the_subject():
-    assert categorize(make(sender="X <x@nptel.ac.in>", subject="Your certificate"), []) == "nptel"
 
 
 # ---------- deadlines ----------
@@ -276,6 +246,9 @@ def test_snippet_stops_at_the_next_line():
 def test_priority_rules():
     now = RECEIVED
     assert priority_for("college", now + timedelta(hours=47), now) == "urgent"
+    assert priority_for("digii", None, now) == "important"
+    assert priority_for("custom", None, now) == "important"
+    assert priority_for("keyword", None, now) == "important"
     assert priority_for("nptel", now + timedelta(hours=49), now) == "important"
     assert priority_for("internship", None, now) == "important"
     assert priority_for("gform", now + timedelta(days=9), now) == "important"

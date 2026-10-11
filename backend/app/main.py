@@ -14,6 +14,7 @@ from app.api import (
     push,
     quarantine,
     settings,
+    sources,
     sync,
     tasks,
     triage,
@@ -54,6 +55,7 @@ app.include_router(sync.router)
 app.include_router(tasks.router)
 app.include_router(quarantine.router)
 app.include_router(settings.router)
+app.include_router(sources.router)
 app.include_router(triage.router)
 app.include_router(notifications.router)
 app.include_router(push.router)

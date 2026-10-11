@@ -1,12 +1,12 @@
 {
-  "id": "tri17",
-  "threadId": "thr-tri17",
+  "id": "src11",
+  "threadId": "thr-src11",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767286800000",
+  "internalDate": "1767265200000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Quiz is open"
+        "value": "Assignment is live"
       },
       {
         "name": "From",
-        "value": "NPTEL <noreply@nptel.ac.in>"
+        "value": "NPTEL <noreply@fakenptel.ac.in>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 96,
-      "data": "VGhlIFdlZWsgMyBxdWl6IGlzIG9wZW4uIEF0dGVtcHQgdGhlIHF1aXogYXQgaHR0cHM6Ly9vbmxpbmVjb3Vyc2VzLm5wdGVsLmFjLmluL25vYzI2X2NzMTAvcXVpei8z"
+      "size": 50,
+      "data": "VGhlIGFzc2lnbm1lbnQgaXMgbGl2ZS4gU3VibWl0IGJlZm9yZSAyNSBPY3QgMjAyNi4"
     }
   }
 }

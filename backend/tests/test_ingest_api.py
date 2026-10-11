@@ -48,38 +48,33 @@ def test_sync_requires_login(client):
     assert client.post("/sync/run").status_code == 401
 
 
-def test_sync_run_returns_counts_and_persists_cursor(logged_in, engine, user_id):
+def test_sync_run_returns_counts_and_records_the_run(logged_in, engine, user_id):
     use_gmail(FakeGmailApi(fixtures_by_number(1, 2, 3, 15, 17)))
     resp = logged_in.post("/sync/run")
     assert resp.status_code == 200
-    assert resp.json() == {
-        "mode": "backfill",
-        "history_reset": False,
-        "discovered": 5,
-        "fetched": 5,
-        "delivered": 3,
-        "passed": 2,
-        "quarantined": 1,  # fixture 1: display name "NPTEL" on a non-NPTEL domain
-        "ignored": 0,
-        "already_processed": 0,
-        "skipped": 2,
-        "failed": 0,
-        "deferred": 0,
-        "rate_limited": False,
-    }
+    body = resp.json()
+    assert body["mode"] == "backfill" and "history_reset" not in body
+    assert (body["discovered"], body["fetched"], body["failed"]) == (5, 5, 0)
+    decided = body["passed"] + body["quarantined"] + body["ignored"] + body["dropped"]
+    assert decided == body["delivered"] and body["delivered"] + body["skipped"] == 5
+    # default settings only know NPTEL + the watch keywords, so these old fixtures are not tasks
+    assert body["passed"] == 0
     with engine.connect() as conn:
         row = conn.execute(
-            text("SELECT history_id, last_success_at FROM sync_state WHERE user_id = :u"),
-            {"u": user_id},
+            text("SELECT last_success_at FROM sync_state WHERE user_id = :u"), {"u": user_id}
         ).one()
-    assert row.history_id == "1000" and row.last_success_at is not None
+    assert row.last_success_at is not None
 
 
-def test_running_twice_is_incremental_the_second_time(logged_in):
-    use_gmail(FakeGmailApi(fixtures_by_number(1, 2, 3)))
-    assert logged_in.post("/sync/run").json()["mode"] == "backfill"
+def test_running_twice_does_not_download_or_decide_anything_again(logged_in):
+    fake = FakeGmailApi(fixtures_by_number(1, 2, 3))
+    use_gmail(fake)
+    first = logged_in.post("/sync/run").json()
+    assert first["mode"] == "backfill" and first["delivered"] == 3
+    fake.calls.clear()
     second = logged_in.post("/sync/run").json()
     assert second["mode"] == "incremental" and second["delivered"] == 0
+    assert fake.gets() == [] and second["already_processed"] == 0 and second["skipped"] == 3
 
 
 def test_response_never_includes_email_content(logged_in):

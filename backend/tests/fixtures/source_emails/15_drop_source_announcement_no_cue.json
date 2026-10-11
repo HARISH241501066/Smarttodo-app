@@ -1,12 +1,12 @@
 {
-  "id": "tri06",
-  "threadId": "thr-tri06",
+  "id": "src15",
+  "threadId": "thr-src15",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767247200000",
+  "internalDate": "1767279600000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,7 +15,7 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Week 9 lecture videos uploaded"
+        "value": "Holiday on Friday"
       },
       {
         "name": "From",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 68,
-      "data": "VGhlIGxlY3R1cmUgdmlkZW9zIGZvciBXZWVrIDkgaGF2ZSBiZWVuIHVwbG9hZGVkIHRvIHRoZSBjb3Vyc2UgcGFnZS4"
+      "size": 63,
+      "data": "VGhlIG9mZmljZSB3aWxsIHJlbWFpbiBjbG9zZWQgb24gRnJpZGF5IGZvciB0aGUgbG9jYWwgZmVzdGl2YWwu"
     }
   }
 }

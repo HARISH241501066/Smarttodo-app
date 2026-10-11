@@ -1,16 +1,18 @@
-"""Gmail sync: backfill, incremental sync via history.list, per-message isolation.
+"""Gmail sync: one source-based search, per-message isolation.
 
-Parsed messages are handed to a `sink`. Persisting them (tasks etc.) is the job of
-later modules; the sink runs inside a SAVEPOINT so a failing sink never leaves
-partial writes, and it must not commit. Duplicate protection here is the history
-cursor, an in-run id set and a per-user lock. A replayed backfill (after an
-expired history_id) can redeliver ids, so sinks must be idempotent on message id
-(tasks use UNIQUE(user_id, source_ref)).
+The only mail ever listed is what `build_query` asks for (mail from the user's sources, or
+mentioning a watch keyword). Nothing outside that query is fetched. Messages already handled are
+skipped *before* fetching, so a repeated sync only downloads new mail.
+
+Parsed messages are handed to a `sink`. Persisting them (tasks etc.) is the job of the filter
+pipeline; the sink runs inside a SAVEPOINT so a failing sink never leaves partial writes, and it
+must not commit. Sinks must be idempotent on message id (tasks use UNIQUE(user_id, source_ref)).
 
 Privacy: only message ids and counts are logged, never subjects, senders or bodies.
 """
 
 import logging
+import math
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -19,26 +21,22 @@ from datetime import UTC, datetime
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.ingest.gmail import GmailApi, HistoryExpired, MessageGone, RateLimited
+from app.ingest.gmail import GmailApi, MessageGone, RateLimited
 from app.ingest.mime import ParsedMessage, parse_message
-from app.ingest.query import (
-    DEFAULT_DENYLIST,
-    build_query,
-    labels_allowed,
-    normalize_denylist,
-    sender_matches,
-    sender_matches_denylist,
-)
-from app.models import IngestFailure, SyncState, User, UserSettings
+from app.ingest.query import BACKFILL_DAYS, build_query, labels_allowed
+from app.models import IngestFailure, ProcessedMessage, SyncState, User, UserSettings
+from app.sources import DEFAULT_KEYWORDS, DEFAULT_SOURCES, load_sources
 
 logger = logging.getLogger(__name__)
 
 MAX_RETRY_ATTEMPTS = 3
 LOCK_NAMESPACE = 0x53594E43  # "SYNC"
 ERROR_MAX_CHARS = 200
+OVERLAP_DAYS = 2  # a later sync re-lists a little of the past, in case of clock/indexing lag
 
 # A sink returns None (plain delivery) or the decision it took: "passed" | "quarantined" |
-# "skipped" (already handled) | "failed" (the sink recorded the failure itself and swallowed it).
+# "dropped" | "ignored" | "skipped" (already handled) | "failed" (the sink recorded the failure
+# itself and swallowed it).
 Sink = Callable[[User, ParsedMessage], str | None]
 
 
@@ -48,22 +46,21 @@ class SyncInProgress(Exception):
 
 @dataclass
 class SyncResult:
-    mode: str  # "backfill" | "incremental"
-    history_reset: bool = False  # True when an expired history_id forced a backfill
+    mode: str  # "backfill" (first run, or a rebuild) | "incremental"
+    query: str | None = None  # the Gmail search that was run (None: nothing to look for)
     discovered: int = 0  # unique message ids found (plus retried failures)
     fetched: int = 0  # messages actually retrieved from Gmail
     delivered: int = 0  # handed to the sink
-    skipped: int = 0  # filtered out, or deleted before fetch
+    skipped: int = 0  # already handled, spam/trash, or deleted before fetch
     failed: int = 0  # recorded in ingest_failures this run
     deferred: int = 0  # not attempted because Gmail rate-limited us; retried next sync
     rate_limited: bool = False
     decisions: dict[str, int] = field(default_factory=dict)  # sink decisions, when it reports them
-    history_id: str | None = None
     delivered_ids: list[str] = field(default_factory=list)
 
 
 def discard_sink(user: User, message: ParsedMessage) -> str | None:
-    """Placeholder sink until the filtering/task modules exist."""
+    """Placeholder sink for callers that only want the fetching."""
 
 
 @contextmanager
@@ -85,7 +82,11 @@ def user_sync_lock(session: Session, user_id: int) -> Iterator[None]:
 def get_or_create_settings(session: Session, user_id: int) -> UserSettings:
     row = session.get(UserSettings, user_id)
     if row is None:
-        row = UserSettings(user_id=user_id, denylist=list(DEFAULT_DENYLIST))
+        row = UserSettings(
+            user_id=user_id,
+            sources=[dict(s, senders=list(s["senders"])) for s in DEFAULT_SOURCES],
+            watch_keywords=list(DEFAULT_KEYWORDS),
+        )
         session.add(row)
         session.commit()
     return row
@@ -100,32 +101,23 @@ def _get_or_create_state(session: Session, user_id: int) -> SyncState:
     return row
 
 
-def _backfill_ids(gmail: GmailApi, query: str) -> dict[str, list[str] | None]:
-    ids: dict[str, list[str] | None] = {}
+def _window_days(state: SyncState, full: bool) -> int:
+    """30 days on the first run or a rebuild; afterwards just since the last good sync."""
+    if full or state.last_success_at is None:
+        return BACKFILL_DAYS
+    elapsed = (datetime.now(UTC) - state.last_success_at).total_seconds() / 86400
+    return max(OVERLAP_DAYS, min(BACKFILL_DAYS, math.ceil(elapsed) + OVERLAP_DAYS))
+
+
+def _list_ids(gmail: GmailApi, query: str) -> list[str]:
+    ids: dict[str, None] = {}
     token = None
     while True:
         page, token = gmail.list_messages(query, token)
         for message_id in page:
             ids.setdefault(message_id, None)
         if not token:
-            return ids
-
-
-def _incremental_ids(
-    gmail: GmailApi, start_history_id: str
-) -> tuple[dict[str, list[str] | None], str | None]:
-    ids: dict[str, list[str] | None] = {}
-    latest = None
-    token = None
-    while True:
-        records, token, history_id = gmail.list_history(start_history_id, token)
-        latest = history_id or latest
-        for record in records:
-            for added in record.get("messagesAdded", []):
-                message = added["message"]
-                ids.setdefault(message["id"], message.get("labelIds"))
-        if not token:
-            return ids, latest
+            return list(ids)
 
 
 def record_failure(session: Session, user_id: int, message_id: str, exc: Exception) -> None:
@@ -174,68 +166,91 @@ def _defer(session: Session, user_id: int, message_ids: list[str]) -> None:
 
 
 def run_sync(
-    user: User, session: Session, gmail: GmailApi, sink: Sink = discard_sink
+    user: User,
+    session: Session,
+    gmail: GmailApi,
+    sink: Sink = discard_sink,
+    *,
+    full: bool = False,
 ) -> SyncResult:
+    """`full=True` (a rebuild) looks back the whole 30 days and re-handles mail already seen."""
     with user_sync_lock(session, user.id):
-        return _run(user, session, gmail, sink)
+        return _run(user, session, gmail, sink, full)
 
 
-def _run(user: User, session: Session, gmail: GmailApi, sink: Sink) -> SyncResult:
+def _handled_ids(session: Session, user_id: int, ids: list[str]) -> set[str]:
+    """Ids that already have a final decision (a recorded failure is not final)."""
+    done: set[str] = set()
+    for start in range(0, len(ids), 500):
+        done.update(
+            session.scalars(
+                select(ProcessedMessage.message_id).where(
+                    ProcessedMessage.user_id == user_id,
+                    ProcessedMessage.message_id.in_(ids[start : start + 500]),
+                    ProcessedMessage.decision != "failed",
+                )
+            )
+        )
+    return done
+
+
+def _run(user: User, session: Session, gmail: GmailApi, sink: Sink, full: bool) -> SyncResult:
     settings = get_or_create_settings(session, user.id)
-    denylist = normalize_denylist(settings.denylist)
-    always_track = normalize_denylist(settings.always_track)
     state = _get_or_create_state(session, user.id)
+    days = _window_days(state, full)
+    query = build_query(load_sources(settings.sources), settings.watch_keywords, days)
 
-    result = SyncResult(mode="incremental")
-    candidates: dict[str, list[str] | None] | None = None
-    new_history_id: str | None = None
+    result = SyncResult(mode="backfill" if days == BACKFILL_DAYS else "incremental", query=query)
+    candidates: list[str] = _list_ids(gmail, query) if query else []
 
-    if state.history_id:
-        try:
-            candidates, new_history_id = _incremental_ids(gmail, state.history_id)
-        except HistoryExpired:
-            logger.warning("user %s history_id expired; falling back to backfill", user.id)
-            result.history_reset = True
-            state.history_id = None
-    if candidates is None:
-        result.mode = "backfill"
-        # Capture the cursor BEFORE listing so mail arriving mid-backfill isn't missed.
-        new_history_id = gmail.profile_history_id()
-        candidates = _backfill_ids(gmail, build_query(denylist, always_track))
-
-    # Earlier failures get another chance (bounded), without double-handling.
+    # Earlier failures get another chance, but only MAX_RETRY_ATTEMPTS times: the query lists the
+    # same mail every run, so one that keeps failing must not be fetched forever.
+    exhausted = set(
+        session.scalars(
+            select(IngestFailure.message_id).where(
+                IngestFailure.user_id == user.id, IngestFailure.attempts >= MAX_RETRY_ATTEMPTS
+            )
+        )
+    )
+    candidates = [mid for mid in candidates if mid not in exhausted]
+    seen = set(candidates)
     for message_id in session.scalars(
         select(IngestFailure.message_id).where(
             IngestFailure.user_id == user.id, IngestFailure.attempts < MAX_RETRY_ATTEMPTS
         )
     ):
-        candidates.setdefault(message_id, None)
+        if message_id not in seen:
+            candidates.append(message_id)
+            seen.add(message_id)
 
     result.discovered = len(candidates)
-    pending = list(candidates.items())
-    for position, (message_id, stub_labels) in enumerate(pending):
+    if not full:
+        handled = _handled_ids(session, user.id, candidates)
+        result.skipped += len(handled)
+        pending = [mid for mid in candidates if mid not in handled]
+    else:
+        pending = candidates
+
+    for position, message_id in enumerate(pending):
         try:
-            _process_message(
-                user, session, gmail, sink, denylist, message_id, stub_labels, result, always_track
-            )
+            _process_message(user, session, gmail, sink, message_id, result)
         except RateLimited:
             # Quota isn't message-specific: park the rest instead of failing each one.
-            rest = [mid for mid, _ in pending[position:]]
+            rest = pending[position:]
             _defer(session, user.id, rest)
             result.deferred, result.rate_limited = len(rest), True
             logger.warning("user %s rate limited; deferred %d messages", user.id, len(rest))
             break
 
-    state.history_id = new_history_id or state.history_id
-    state.last_success_at = datetime.now(UTC)
+    if not result.rate_limited:
+        state.last_success_at = datetime.now(UTC)
     session.commit()
-    result.history_id = state.history_id
 
     logger.info(
-        "sync user=%s mode=%s history_reset=%s discovered=%d fetched=%d delivered=%d "
-        "skipped=%d failed=%d deferred=%d",
-        user.id, result.mode, result.history_reset, result.discovered, result.fetched,
-        result.delivered, result.skipped, result.failed, result.deferred,
+        "sync user=%s mode=%s discovered=%d fetched=%d delivered=%d skipped=%d failed=%d "
+        "deferred=%d decisions=%s",
+        user.id, result.mode, result.discovered, result.fetched, result.delivered,
+        result.skipped, result.failed, result.deferred, result.decisions,
     )  # fmt: skip
     logger.info("sync user=%s delivered ids (first 20): %s", user.id, result.delivered_ids[:20])
     logger.debug("sync user=%s all delivered ids: %s", user.id, result.delivered_ids)
@@ -247,32 +262,21 @@ def _process_message(
     session: Session,
     gmail: GmailApi,
     sink: Sink,
-    denylist: list[str],
     message_id: str,
-    stub_labels: list[str] | None,
     result: SyncResult,
-    always_track: list[str] = (),  # type: ignore[assignment]
 ) -> None:
     try:
-        # History stubs carry labels but no sender, so with tracked senders configured a message
-        # from the Promotions tab must be fetched to find out whether it is one of them.
-        if stub_labels is not None and not labels_allowed(stub_labels, tracked=bool(always_track)):
+        raw = gmail.get_message(message_id)
+        result.fetched += 1
+        parsed = parse_message(raw, gmail.get_attachment)
+        if not labels_allowed(parsed.labels):
             outcome = "skipped"
         else:
-            raw = gmail.get_message(message_id)
-            result.fetched += 1
-            parsed = parse_message(raw, gmail.get_attachment)
-            tracked = sender_matches(parsed.sender, always_track)
-            if not labels_allowed(parsed.labels, tracked=tracked) or (
-                not tracked and sender_matches_denylist(parsed.sender, denylist)
-            ):
-                outcome = "skipped"
-            else:
-                with session.begin_nested():
-                    decision = sink(user, parsed)
-                if decision:
-                    result.decisions[decision] = result.decisions.get(decision, 0) + 1
-                outcome = {"skipped": "skipped", "failed": "failed"}.get(decision, "delivered")
+            with session.begin_nested():
+                decision = sink(user, parsed)
+            if decision:
+                result.decisions[decision] = result.decisions.get(decision, 0) + 1
+            outcome = {"skipped": "skipped", "failed": "failed"}.get(decision, "delivered")
     except MessageGone:
         outcome = "skipped"
     except RateLimited:

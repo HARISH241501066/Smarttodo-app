@@ -1,12 +1,12 @@
 {
-  "id": "tri05",
-  "threadId": "thr-tri05",
+  "id": "src10",
+  "threadId": "thr-src10",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767243600000",
+  "internalDate": "1767261600000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,15 +15,15 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Payment receipt - exam registration fee"
+        "value": "Assignment is live"
       },
       {
         "name": "From",
-        "value": "Payments <payments@pay.example.test>"
+        "value": "NPTEL <noreply@nptel.ac.in>"
       },
       {
         "name": "Authentication-Results",
-        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+        "value": "mx.google.com; spf=fail; dkim=none; dmarc=fail"
       },
       {
         "name": "Content-Type",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 71,
-      "data": "VGhhbmsgeW91IGZvciB5b3VyIHBheW1lbnQgb2YgUnMuIDEwMDAuIFlvdXIgcmVjZWlwdCBudW1iZXIgaXMgUi0yMDkzMS4"
+      "size": 50,
+      "data": "VGhlIGFzc2lnbm1lbnQgaXMgbGl2ZS4gU3VibWl0IGJlZm9yZSAyNSBPY3QgMjAyNi4"
     }
   }
 }

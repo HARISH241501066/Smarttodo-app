@@ -28,14 +28,19 @@ NAMING = {
     "pk": "pk_%(table_name)s",
 }
 
-TASK_SOURCES = ("manual", "nptel", "internship", "gform", "college", "other", "tracked")
+# "nptel", "digii", "internship" and "custom" are the source types the user configures;
+# "keyword" is a watch-keyword match from an unlisted sender. The rest are kept for older rows.
+TASK_SOURCES = (
+    "manual", "nptel", "digii", "internship", "custom", "keyword",
+    "gform", "college", "other", "tracked",
+)  # fmt: skip
 TASK_PRIORITIES = ("urgent", "important", "regular")
 TASK_STATUSES = ("open", "done", "needs_review", "dismissed")
 QUARANTINE_STATUSES = ("held", "rescued", "confirmed_scam")
 LINK_TYPES = ("action", "gmail")
 REMINDER_KINDS = ("created", "t48", "t24", "t10", "t1", "immediate")
 NOTIFICATION_KINDS = ("reminder", "digest")
-PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed", "ignored")
+PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed", "ignored", "dropped")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -86,6 +91,13 @@ class Task(Base):
     link_confidence: Mapped[float | None] = mapped_column(Float)
     source_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sender_email: Mapped[str | None] = mapped_column(String(320))  # address only, no body
+    source_name: Mapped[str | None] = mapped_column(
+        String(64)
+    )  # "NPTEL", "Digii", "Keyword: hackathon"
+    # Written by hand, confirmed, edited or finished by the user: a rebuild never deletes it.
+    user_confirmed: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False
+    )
     priority: Mapped[str] = mapped_column(String(16), server_default="regular", nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), server_default="open", nullable=False)
@@ -175,30 +187,6 @@ class ProcessedMessage(Base):
     processed_at: Mapped[datetime] = _ts()
 
 
-class EmailUpdate(Base):
-    """An informational email (results, "lecture uploaded", announcements): worth seeing, but not
-    a to-do. Holds no body, only what is needed to show it and to turn it into a task."""
-
-    __tablename__ = "updates"
-    __table_args__ = (
-        UniqueConstraint("user_id", "message_id", name="uq_updates_user_id_message_id"),
-        CheckConstraint(_in("source", TASK_SOURCES), name="source"),
-        CheckConstraint(_in("link_type", LINK_TYPES), name="link_type"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    message_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    title: Mapped[str] = mapped_column(Text, nullable=False)
-    source: Mapped[str] = mapped_column(String(16), server_default="other", nullable=False)
-    link: Mapped[str | None] = mapped_column(Text)
-    link_type: Mapped[str | None] = mapped_column(String(16))
-    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = _ts()
-
-
 class PushSubscription(Base):
     """A browser's Web Push subscription. The endpoint is the identity of one browser profile."""
 
@@ -256,13 +244,21 @@ class UserSettings(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
-    denylist: Mapped[Any] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
-    allowlist: Mapped[Any] = mapped_column(
+    # The only places mail is fetched from: [{"name", "type", "senders": [domain or address]}].
+    sources: Mapped[Any] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
+    # Words that make mail from an unlisted sender worth a look (hackathon, ...).
+    watch_keywords: Mapped[Any] = mapped_column(
+        JSONB,
+        server_default=text('\'["hackathon", "ideathon", "datathon"]\'::jsonb'),
+        nullable=False,
+    )
+    # Domains/addresses that never become tasks, even when a keyword matches.
+    block_senders: Mapped[Any] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb"), nullable=False
     )
-    # Senders (domains or full addresses) whose mail always becomes a task.
-    always_track: Mapped[Any] = mapped_column(
-        JSONB, server_default=text("'[]'::jsonb"), nullable=False
+    # If true, mail without a deadline is dropped instead of becoming a task with none.
+    require_deadline: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False
     )
     llm_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
     digest_hour: Mapped[int] = mapped_column(Integer, server_default=text("8"), nullable=False)

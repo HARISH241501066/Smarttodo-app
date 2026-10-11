@@ -1,42 +1,38 @@
-"""Filter stage that sits between Gmail ingestion and task creation.
+"""The sync sink: turn every fetched message into exactly one recorded decision.
 
-For every parsed message: skip it if already handled, otherwise score it, then either
-quarantine it or hand it (in memory only) to the next stage. The decision is recorded in
-processed_messages, which holds ids and short reasons, never message content.
-Only message ids and decisions are logged.
+For each parsed message: skip it if already handled, otherwise run filters.decide and act on the
+answer:
 
-The next stage may answer with a StageOutcome to say the message was not a keeper after all
-(decision "ignored") or to add a short note to the record; returning nothing means "passed".
+    ignore      -> processed_messages decision=ignored
+    drop        -> decision=dropped
+    suspicious  -> a Suspicious (quarantine) row, decision=quarantined
+    task/review -> a task (needs_review if deadlines conflict) + its reminders, decision=passed
+
+processed_messages holds ids and short reasons, never message content. Only message ids and
+decisions are logged.
 """
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.filters.auth_check import DEFAULT_BRANDS
-from app.filters.scam import score_message
+from app.filters.decide import DROP, IGNORE, SUSPICIOUS, decide
+from app.filters.task_stage import ingest_message
 from app.ingest.mime import ParsedMessage
-from app.ingest.sync import Sink, record_failure
-from app.models import ProcessedMessage, Quarantine, User, UserSettings
+from app.ingest.query import normalize_entries
+from app.ingest.sync import Sink, get_or_create_settings, record_failure
+from app.models import ProcessedMessage, Quarantine, User
+from app.scheduler.reminders import sync_reminders
+from app.sources import load_sources
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass(frozen=True)
-class StageOutcome:
-    decision: str = "passed"  # "passed" | "ignored"
-    note: str | None = None  # e.g. "task: assignment is live/due"; stored in processed_messages
-
-
-NextStage = Callable[[User, ParsedMessage], StageOutcome | None]
-
-
-def discard_next_stage(user: User, message: ParsedMessage) -> None:
-    """Placeholder until Module 5 (task extraction). Must be idempotent on message id."""
+SPOOF_SCORE = 4  # shown score for a source impersonation (the quarantine threshold)
 
 
 def record_decision(
@@ -55,26 +51,45 @@ def record_decision(
 
 def make_filter_sink(
     session: Session,
-    next_stage: NextStage = discard_next_stage,
+    clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     brands: dict[str, tuple[str, ...]] = DEFAULT_BRANDS,
+    *,
+    reprocess: bool = False,
 ) -> Sink:
-    """Build a sync sink. Returns the decision so the sync can count it."""
+    """Build a sync sink. Returns the decision so the sync can count it. `reprocess` (used by a
+    rebuild) decides again on messages that were handled before."""
 
     def sink(user: User, message: ParsedMessage) -> str:
-        previous = session.scalar(
-            select(ProcessedMessage.decision).where(
-                ProcessedMessage.user_id == user.id,
-                ProcessedMessage.message_id == message.message_id,
+        if not reprocess:
+            previous = session.scalar(
+                select(ProcessedMessage.decision).where(
+                    ProcessedMessage.user_id == user.id,
+                    ProcessedMessage.message_id == message.message_id,
+                )
             )
-        )
-        if previous is not None and previous != "failed":  # failed ones are retried
-            return "skipped"
+            if previous is not None and previous != "failed":  # failed ones are retried
+                return "skipped"
 
         try:
             with session.begin_nested():
-                settings = session.get(UserSettings, user.id)
-                verdict = score_message(message, brands, settings.always_track if settings else ())
-                if verdict.quarantine:
+                now = clock()
+                settings = get_or_create_settings(session, user.id)
+                result = decide(
+                    message,
+                    sources=load_sources(settings.sources),
+                    keywords=list(settings.watch_keywords or []),
+                    block_senders=normalize_entries(settings.block_senders),
+                    require_deadline=settings.require_deadline,
+                    received_or_now=message.received_at or now,
+                    now=now,
+                    brands=brands,
+                )
+                if result.kind == IGNORE:
+                    decision = "ignored"
+                elif result.kind == DROP:
+                    decision = "dropped"
+                elif result.kind == SUSPICIOUS:
+                    score = result.scam.score if result.scam else SPOOF_SCORE
                     session.execute(
                         insert(Quarantine)
                         .values(
@@ -82,25 +97,27 @@ def make_filter_sink(
                             message_id=message.message_id,
                             subject=message.subject[:500],
                             sender=message.sender[:500],
-                            score=verdict.score,
-                            reasons=verdict.reasons,
+                            score=score,
+                            reasons=result.reasons,
                         )
                         .on_conflict_do_nothing(index_elements=["user_id", "message_id"])
                     )
                     decision = "quarantined"
-                    stage_note = None
-                else:
-                    outcome = next_stage(user, message)
-                    decision = outcome.decision if outcome else "passed"
-                    stage_note = outcome.note if outcome else None
-                note = f"score={verdict.score}"
-                if verdict.trusted_tracked:
-                    note = "tracked sender"
-                elif verdict.tracked:
-                    note += "; tracked sender failed authentication"
-                if stage_note:
-                    note = f"{stage_note}; {note}"
-                record_decision(session, user.id, message.message_id, decision, note)
+                else:  # task or review
+                    task, created = ingest_message(session, user, message, now, result)
+                    if task is not None:  # (re)build the reminder ladder; none while in review
+                        sync_reminders(session, task, now=now, created=created)
+                    decision = "passed"
+                if reprocess and decision != "quarantined":
+                    # Re-judged as not suspicious any more: it must not stay in the held queue.
+                    session.execute(
+                        delete(Quarantine).where(
+                            Quarantine.user_id == user.id,
+                            Quarantine.message_id == message.message_id,
+                            Quarantine.status == "held",
+                        )
+                    )
+                record_decision(session, user.id, message.message_id, decision, result.reason)
         except Exception as exc:
             logger.warning(
                 "message %s failed in filter stage: %s", message.message_id, type(exc).__name__
@@ -109,7 +126,7 @@ def make_filter_sink(
             record_failure(session, user.id, message.message_id, exc)
             return "failed"
 
-        logger.info("message %s decision=%s score=%d", message.message_id, decision, verdict.score)
+        logger.info("message %s decision=%s kind=%s", message.message_id, decision, result.kind)
         return decision
 
     return sink

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, AUTH_EXPIRED_EVENT } from "@/lib/api";
-import type { Me, NotificationList, QuarantineItem, Task, UpdateItem } from "@/lib/types";
+import type { Me, NotificationList, QuarantineItem, Task } from "@/lib/types";
 import { Spinner } from "@/components/ui";
 
 const REFRESH_MS = 30_000;
@@ -21,7 +21,6 @@ interface AppState {
   notifications: NotificationList;
   reviewCount: number;
   suspiciousCount: number;
-  updatesCount: number;
   refreshNotifications: () => Promise<void>;
   refreshCounts: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
@@ -44,7 +43,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationList>({ unread_count: 0, items: [] });
   const [reviewCount, setReviewCount] = useState(0);
   const [suspiciousCount, setSuspiciousCount] = useState(0);
-  const [updatesCount, setUpdatesCount] = useState(0);
 
   const refreshNotifications = useCallback(async () => {
     try {
@@ -55,14 +53,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshCounts = useCallback(async () => {
-    const [review, quarantine, updates] = await Promise.allSettled([
+    const [review, quarantine] = await Promise.allSettled([
       api<Task[]>("/review"),
       api<QuarantineItem[]>("/quarantine"),
-      api<UpdateItem[]>("/updates"),
     ]);
     if (review.status === "fulfilled") setReviewCount(review.value.length);
     if (quarantine.status === "fulfilled") setSuspiciousCount(quarantine.value.length);
-    if (updates.status === "fulfilled") setUpdatesCount(updates.value.length);
   }, []);
 
   const markRead = useCallback(
@@ -129,7 +125,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             notifications,
             reviewCount,
             suspiciousCount,
-            updatesCount,
             refreshNotifications,
             refreshCounts,
             markRead,
@@ -141,7 +136,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notifications,
       reviewCount,
       suspiciousCount,
-      updatesCount,
       refreshNotifications,
       refreshCounts,
       markRead,

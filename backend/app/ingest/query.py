@@ -1,7 +1,11 @@
-"""Gmail search query builder and the post-filter that mirrors it.
+"""The one Gmail search the app ever runs: mail from the user's sources, or mentioning a watch
+keyword. Nothing outside this query is fetched.
 
-`history.list` cannot take a search query, so incremental sync applies the same
-exclusions locally (labels + denylist) to messages it discovers.
+    newer_than:30d -in:spam -in:trash (from:nptel.ac.in OR from:a@b.com OR hackathon OR ideathon)
+
+There are deliberately no category exclusions: mail from a source may sit in Promotions. Sender
+matching afterwards (sender_matches) is the strict rule; Gmail's own `from:` is only a filter to
+keep the amount of mail fetched small.
 """
 
 import logging
@@ -11,32 +15,18 @@ from email.utils import parseaddr
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DENYLIST = ("linkedin.com", "naukri.com")
 BACKFILL_DAYS = 30
 
-BASE_QUERY = (
-    f"newer_than:{BACKFILL_DAYS}d -category:promotions -category:social "
-    "-category:forums -in:spam -in:trash"
-)
-
-# Mail from "always track" senders is also fetched from Promotions/Social/Forums; spam and trash
-# stay excluded for everyone.
-TRACKED_BASE_QUERY = f"newer_than:{BACKFILL_DAYS}d -in:spam -in:trash"
-
-# Gmail system labels that the query above excludes.
-HARD_EXCLUDED_LABELS = frozenset({"SPAM", "TRASH"})
-EXCLUDED_LABELS = HARD_EXCLUDED_LABELS | {
-    "CATEGORY_PROMOTIONS",
-    "CATEGORY_SOCIAL",
-    "CATEGORY_FORUMS",
-}
-
-# Only plain domains / addresses: anything else could inject extra Gmail search operators.
+# Only plain domains / addresses and simple words: anything else could inject extra Gmail
+# search operators ("x OR from:boss@work.test", "-in:anywhere", parentheses...).
 _ENTRY_RE = re.compile(r"^[a-z0-9][a-z0-9._+@-]*$")
+_KEYWORD_RE = re.compile(r"^[a-z0-9][a-z0-9 -]{0,58}[a-z0-9]$|^[a-z0-9]$")
+
+HARD_EXCLUDED_LABELS = frozenset({"SPAM", "TRASH"})
 
 
-def normalize_denylist(entries: Iterable[object] | None) -> list[str]:
-    """Lower-case, de-duplicate and drop entries that aren't a safe domain/address."""
+def normalize_entries(entries: Iterable[object] | None) -> list[str]:
+    """Lower-case, de-duplicate and drop anything that is not a safe domain or address."""
     result: list[str] = []
     for entry in entries or []:
         value = entry.strip().lower().removeprefix("@") if isinstance(entry, str) else ""
@@ -44,26 +34,43 @@ def normalize_denylist(entries: Iterable[object] | None) -> list[str]:
             if value not in result:
                 result.append(value)
         else:
-            logger.warning("ignoring invalid denylist entry (%d chars)", len(value))
+            logger.warning("ignoring invalid sender entry (%d chars)", len(value))
+    return result
+
+
+def normalize_keywords(entries: Iterable[object] | None) -> list[str]:
+    result: list[str] = []
+    for entry in entries or []:
+        value = " ".join(entry.lower().split()) if isinstance(entry, str) else ""
+        if _KEYWORD_RE.fullmatch(value):
+            if value not in result:
+                result.append(value)
+        else:
+            logger.warning("ignoring invalid keyword (%d chars)", len(value))
     return result
 
 
 def build_query(
-    denylist: Iterable[object] | None, always_track: Iterable[object] | None = None
-) -> str:
-    """The normal query, OR-ed with a second clause for "always track" senders when there are any.
-
-    With no tracked senders the result is exactly the normal query."""
-    normal = " ".join([BASE_QUERY, *(f"-from:{d}" for d in normalize_denylist(denylist))])
-    tracked = normalize_denylist(always_track)
-    if not tracked:
-        return normal
-    return f"({normal}) OR ({TRACKED_BASE_QUERY} from:({' OR '.join(tracked)}))"
+    sources: Iterable[object], keywords: Iterable[object] | None, days: int = BACKFILL_DAYS
+) -> str | None:
+    """`sources` are objects with a `.senders` list. Returns None when there is nothing to look
+    for, in which case no mail is fetched at all."""
+    senders: list[str] = []
+    for source in sources:
+        for sender in normalize_entries(getattr(source, "senders", ())):
+            if sender not in senders:
+                senders.append(sender)
+    terms = [f"from:{s}" for s in senders]
+    terms += [f'"{k}"' if " " in k else k for k in normalize_keywords(keywords)]
+    if not terms:
+        return None
+    return f"newer_than:{days}d -in:spam -in:trash ({' OR '.join(terms)})"
 
 
 def sender_matches(sender: str | None, entries: Iterable[str]) -> bool:
-    """A domain entry matches that domain and its subdomains (nptel.ac.in matches
-    onlinecourses.nptel.ac.in but not fakenptel.ac.in); an address entry matches only itself."""
+    """A domain entry matches that domain or a true subdomain (nptel.ac.in matches
+    onlinecourses.nptel.ac.in, never fakenptel.ac.in or nptel.ac.in.evil.test); an address entry
+    matches only that exact address. The display name is ignored."""
     address = parseaddr(sender or "")[1].lower()
     if "@" not in address:
         return False
@@ -78,11 +85,6 @@ def sender_matches(sender: str | None, entries: Iterable[str]) -> bool:
     return False
 
 
-sender_matches_denylist = sender_matches
-
-
-def labels_allowed(labels: Iterable[str] | None, tracked: bool = False) -> bool:
-    """Whether a message's Gmail labels let it through. Tracked senders may come from the
-    Promotions/Social/Forums tabs; nothing in Spam or Trash ever does."""
-    excluded = HARD_EXCLUDED_LABELS if tracked else EXCLUDED_LABELS
-    return not (set(labels or ()) & excluded)
+def labels_allowed(labels: Iterable[str] | None) -> bool:
+    """Spam and trash never get through, whoever sent them."""
+    return not (set(labels or ()) & HARD_EXCLUDED_LABELS)

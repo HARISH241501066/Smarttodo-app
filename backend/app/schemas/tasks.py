@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.ingest.query import normalize_denylist
+from app.sources import MAX_NAME_CHARS
 
 IST = ZoneInfo("Asia/Kolkata")
 MAX_LINK_CHARS = 2000
@@ -16,7 +16,19 @@ MAX_LIST_ENTRIES = 200
 
 Priority = Literal["urgent", "important", "regular"]
 Status = Literal["open", "done", "needs_review", "dismissed"]
-Source = Literal["manual", "nptel", "internship", "gform", "college", "other", "tracked"]
+Source = Literal[
+    "manual",
+    "nptel",
+    "digii",
+    "internship",
+    "custom",
+    "keyword",
+    "gform",
+    "college",
+    "other",
+    "tracked",
+]
+SourceType = Literal["nptel", "digii", "internship", "custom"]
 SettableStatus = Literal["open", "done", "dismissed"]
 
 
@@ -58,6 +70,7 @@ class TaskOut(BaseModel):
     deadline_display: str | None  # e.g. "Thu, 22 Jan 2026, 11:59 PM IST"
     priority: Priority
     source: Source
+    source_name: str | None = None
     status: Status
     link: str | None
     link_type: Literal["action", "gmail"] | None
@@ -81,6 +94,7 @@ class TaskOut(BaseModel):
             deadline_display=ist.strftime("%a, %d %b %Y, %I:%M %p IST") if ist else None,
             priority=task.priority,
             source=task.source,
+            source_name=task.source_name,
             status=task.status,
             link=task.link,
             link_type=task.link_type,
@@ -155,16 +169,6 @@ class RescueOut(BaseModel):
     task_created: bool  # False when the message was folded into an existing task
 
 
-def _domain_list(values: list[str]) -> list[str]:
-    if len(values) > MAX_LIST_ENTRIES:
-        raise ValueError(f"at most {MAX_LIST_ENTRIES} entries")
-    cleaned = normalize_denylist(values)
-    stripped = {v.strip().lower().removeprefix("@") for v in values if isinstance(v, str)}
-    if not set(cleaned) >= stripped:
-        raise ValueError("entries must be plain domains or addresses, e.g. example.com")
-    return cleaned
-
-
 _LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
 _DOMAIN = rf"(?:{_LABEL}\.)+[a-z]{{2,63}}"
 _DOMAIN_RE = re.compile(rf"^{_DOMAIN}$")
@@ -187,13 +191,58 @@ def _sender_list(values: list[str] | None) -> list[str] | None:
     return out
 
 
-class SettingsBody(BaseModel):
-    denylist: list[str]
-    allowlist: list[str]
-    digest_hour: int = Field(ge=0, le=23)
-    # Senders whose mail always becomes a task. Omitted on PUT = leave the saved list unchanged.
-    always_track: list[str] | None = None
+MAX_SOURCES = 20
+MAX_KEYWORDS = 50
 
-    _denylist = field_validator("denylist")(_domain_list)
-    _allowlist = field_validator("allowlist")(_domain_list)
-    _always_track = field_validator("always_track")(_sender_list)
+
+class SourceBody(BaseModel):
+    name: str = Field(min_length=1, max_length=MAX_NAME_CHARS)
+    type: SourceType
+    senders: list[str] = Field(default_factory=list)
+
+    _senders = field_validator("senders")(_sender_list)
+
+    @field_validator("name")
+    @classmethod
+    def _name(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("a source needs a name")
+        return value
+
+
+_KEYWORD_RE = re.compile(r"^[a-z0-9](?:[a-z0-9 -]{0,58}[a-z0-9])?$")
+
+
+def _keyword_list(values: list[str]) -> list[str]:
+    if len(values) > MAX_KEYWORDS:
+        raise ValueError(f"at most {MAX_KEYWORDS} keywords")
+    out: list[str] = []
+    for raw in values:
+        entry = " ".join(raw.lower().split()) if isinstance(raw, str) else ""
+        if not _KEYWORD_RE.fullmatch(entry):
+            raise ValueError(f"'{str(raw)[:60]}' is not a valid keyword (letters, numbers, spaces)")
+        if entry not in out:
+            out.append(entry)
+    return out
+
+
+class SettingsBody(BaseModel):
+    sources: list[SourceBody]
+    watch_keywords: list[str]
+    block_senders: list[str]
+    require_deadline: bool = False
+    digest_hour: int = Field(ge=0, le=23)
+
+    _keywords = field_validator("watch_keywords")(_keyword_list)
+    _block = field_validator("block_senders")(_sender_list)
+
+    @field_validator("sources")
+    @classmethod
+    def _sources(cls, values: list[SourceBody]) -> list[SourceBody]:
+        if len(values) > MAX_SOURCES:
+            raise ValueError(f"at most {MAX_SOURCES} sources")
+        names = [v.name.lower() for v in values]
+        if len(set(names)) != len(names):
+            raise ValueError("two sources have the same name")
+        return values

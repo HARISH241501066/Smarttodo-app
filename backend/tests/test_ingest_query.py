@@ -1,87 +1,144 @@
 import pytest
 
 from app.ingest.query import (
-    BASE_QUERY,
-    DEFAULT_DENYLIST,
+    HARD_EXCLUDED_LABELS,
     build_query,
     labels_allowed,
-    normalize_denylist,
-    sender_matches_denylist,
+    normalize_entries,
+    normalize_keywords,
+    sender_matches,
 )
+from app.sources import DEFAULT_SOURCES, Source, find_source, load_sources, matching_keyword
 
-SPEC_BASE = (
-    "newer_than:30d -category:promotions -category:social -category:forums -in:spam -in:trash"
-)
-
-
-def test_base_query_matches_spec():
-    assert BASE_QUERY == SPEC_BASE
+NPTEL = Source("NPTEL", "nptel", ("nptel.ac.in",))
+DIGII = Source("Digii", "digii", ("digii.example",))
 
 
-def test_default_denylist_is_linkedin_and_naukri():
-    assert DEFAULT_DENYLIST == ("linkedin.com", "naukri.com")
-    assert build_query(DEFAULT_DENYLIST) == f"{SPEC_BASE} -from:linkedin.com -from:naukri.com"
-
-
-def test_empty_denylist_adds_no_from_clauses():
-    assert build_query([]) == SPEC_BASE
-    assert build_query(None) == SPEC_BASE
-
-
-def test_custom_denylist_entries_become_from_clauses():
-    assert build_query(["foo.com", "bar@baz.org"]) == (
-        f"{SPEC_BASE} -from:foo.com -from:bar@baz.org"
+def test_query_is_exactly_sources_and_keywords():
+    sources = load_sources(DEFAULT_SOURCES)
+    assert build_query(sources, ["hackathon", "ideathon", "datathon"]) == (
+        "newer_than:30d -in:spam -in:trash (from:nptel.ac.in OR hackathon OR ideathon OR datathon)"
     )
 
 
-def test_denylist_is_normalized_and_deduplicated():
-    assert normalize_denylist([" Foo.COM ", "foo.com", "@bar.com"]) == ["foo.com", "bar.com"]
+def test_every_source_sender_gets_a_from_term_and_no_category_exclusions():
+    sources = [
+        Source("A", "custom", ("a.test", "x@y.test")),
+        Source("B", "custom", ("b.test",)),
+    ]
+    query = build_query(sources, ["hackathon"])
+    assert query == (
+        "newer_than:30d -in:spam -in:trash "
+        "(from:a.test OR from:x@y.test OR from:b.test OR hackathon)"
+    )
+    assert "category" not in query and "-from" not in query
+
+
+def test_window_days_follow_the_argument():
+    assert build_query([NPTEL], [], days=3).startswith("newer_than:3d ")
+
+
+def test_nothing_to_search_for_gives_no_query():
+    assert build_query([], []) is None
+    assert build_query([Source("Digii", "digii", ())], None) is None
+
+
+def test_duplicate_senders_and_keywords_are_collapsed():
+    query = build_query(
+        [NPTEL, Source("Again", "custom", ("NPTEL.ac.in",))], ["Hackathon", "hackathon"]
+    )
+    assert query.count("nptel.ac.in") == 1 and query.count("hackathon") == 1
+
+
+def test_keyword_phrases_are_quoted():
+    assert build_query([], ["smart india hackathon"]).endswith('("smart india hackathon")')
 
 
 @pytest.mark.parametrize(
-    "bad", ["x OR in:inbox", "a b", "(", "", "-from:x", "a:b", "foo.com)", "{evil}", "\n", 5, None]
+    "bad",
+    ["x OR in:inbox", "-in:anywhere", "a b", "(boss@work.test)", "", "  ", 7, None, "from:x.test"],
 )
-def test_unsafe_entries_cannot_inject_search_operators(bad):
-    query = build_query(["ok.com", bad])
-    assert query == f"{SPEC_BASE} -from:ok.com"
+def test_entries_that_could_inject_search_operators_are_dropped(bad):
+    assert normalize_entries([bad]) == []
+    assert build_query([Source("S", "custom", ("ok.test",))], []) == (
+        "newer_than:30d -in:spam -in:trash (from:ok.test)"
+    )
+
+
+@pytest.mark.parametrize("bad", ["a) OR (from:boss@work.test", "in:inbox", "", 3, "x" * 80])
+def test_keywords_that_could_inject_search_operators_are_dropped(bad):
+    assert normalize_keywords([bad]) == []
+
+
+def test_entries_are_lowercased_and_at_signs_stripped():
+    assert normalize_entries(["@NPTEL.ac.in", "Me@Example.COM"]) == [
+        "nptel.ac.in",
+        "me@example.com",
+    ]
+
+
+# ---------- strict sender matching ----------
 
 
 @pytest.mark.parametrize(
-    ("sender", "expected"),
+    ("sender", "matches"),
     [
-        ("LinkedIn <notifications@linkedin.com>", True),
-        ("jobs@mail.linkedin.com", True),  # subdomain
-        ("Naukri <info@NAUKRI.com>", True),  # case-insensitive
-        ("x@evil-linkedin.com", False),  # look-alike, not a subdomain
-        ("x@linkedin.com.evil.test", False),
-        ("friend@gmail.com", False),
+        ("NPTEL <noreply@nptel.ac.in>", True),
+        ("x@onlinecourses.nptel.ac.in", True),
+        ("x@a.b.nptel.ac.in", True),
+        ("x@fakenptel.ac.in", False),
+        ("x@nptel.ac.in.evil.test", False),
+        ("x@mynptel.ac.in", False),
+        ("NPTEL Official <x@evil.test>", False),  # the display name counts for nothing
         ("not an address", False),
         ("", False),
         (None, False),
     ],
 )
-def test_sender_matches_denylist(sender, expected):
-    assert sender_matches_denylist(sender, ["linkedin.com", "naukri.com"]) is expected
+def test_domain_entry_matches_exact_domain_or_true_subdomain_only(sender, matches):
+    assert sender_matches(sender, ["nptel.ac.in"]) is matches
 
 
-def test_full_address_entry_matches_only_that_address():
-    assert sender_matches_denylist("Bob <bob@x.com>", ["bob@x.com"])
-    assert not sender_matches_denylist("Al <al@x.com>", ["bob@x.com"])
+def test_address_entry_matches_only_that_exact_address():
+    entries = ["alerts@jobs.test"]
+    assert sender_matches("Jobs <alerts@jobs.test>", entries)
+    assert sender_matches("Jobs <ALERTS@jobs.test>", entries)
+    assert not sender_matches("other@jobs.test", entries)
+    assert not sender_matches("alerts@sub.jobs.test", entries)
+    assert not sender_matches("xalerts@jobs.test", entries)
 
 
-@pytest.mark.parametrize(
-    ("labels", "allowed"),
-    [
-        (["INBOX", "UNREAD"], True),
-        ([], True),
-        (None, True),
-        (["INBOX", "CATEGORY_PROMOTIONS"], False),
-        (["CATEGORY_SOCIAL"], False),
-        (["CATEGORY_FORUMS"], False),
-        (["SPAM"], False),
-        (["TRASH", "INBOX"], False),
-        (["CATEGORY_UPDATES"], True),  # not excluded by the spec'd query
-    ],
-)
-def test_labels_allowed(labels, allowed):
-    assert labels_allowed(labels) is allowed
+def test_find_source_returns_the_first_matching_source():
+    sources = [NPTEL, DIGII]
+    assert find_source("a@onlinecourses.nptel.ac.in", sources) is NPTEL
+    assert find_source("a@digii.example", sources) is DIGII
+    assert find_source("a@fakenptel.ac.in", sources) is None
+
+
+def test_load_sources_skips_malformed_entries():
+    raw = [
+        {"name": "Good", "type": "custom", "senders": ["A.test", "bad sender"]},
+        {"name": "", "type": "custom", "senders": []},
+        {"name": "NoType", "senders": []},
+        {"name": "WrongType", "type": "banana", "senders": []},
+        "junk",
+        None,
+    ]
+    assert load_sources(raw) == [Source("Good", "custom", ("a.test",))]
+    assert load_sources(None) == []
+
+
+def test_keywords_match_whole_words_only():
+    assert matching_keyword("Join the Hackathon today", ["hackathon"]) == "hackathon"
+    assert matching_keyword("HACKATHON!", ["hackathon"]) == "hackathon"
+    assert matching_keyword("A hackathons list", ["hackathon"]) is None
+    assert matching_keyword("smart india hackathon 2026", ["smart india"]) == "smart india"
+    assert matching_keyword("nothing here", ["hackathon"]) is None
+
+
+def test_spam_and_trash_labels_are_the_only_hard_exclusions():
+    assert HARD_EXCLUDED_LABELS == {"SPAM", "TRASH"}
+    assert labels_allowed(["INBOX", "CATEGORY_PROMOTIONS"])  # promotions are fine now
+    assert not labels_allowed(["INBOX", "SPAM"])
+    assert not labels_allowed(["TRASH"])
+    assert labels_allowed(None)

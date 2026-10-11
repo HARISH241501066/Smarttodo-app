@@ -8,19 +8,16 @@ import { useToast } from "@/components/toast";
 import { Button, ConfirmDialog, EmptyState, ErrorNote, Spinner } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { useLoader } from "@/lib/hooks";
-import { buildConfirm, groupBySender, sortSummary } from "@/lib/tasks";
+import { buildConfirm, groupBySender } from "@/lib/tasks";
 import { domainOf } from "@/lib/time";
-import type { ReprocessCounts, Task, TaskInput } from "@/lib/types";
-
-const BATCH = 40; // emails re-read per request, so one request never runs long
+import type { Task, TaskInput } from "@/lib/types";
 
 export default function ReviewPage() {
   const { refreshCounts, refreshNotifications } = useApp();
   const toast = useToast();
-  const { data: tasks, setData: setTasks, error, reload } = useLoader<Task[]>("/review");
+  const { data: tasks, setData: setTasks, error } = useLoader<Task[]>("/review");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [editing, setEditing] = useState<Task | null>(null);
-  const [resorting, setResorting] = useState<string | null>(null); // progress text while running
   const [bulk, setBulk] = useState<{ sender: string; count: number } | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
 
@@ -89,46 +86,14 @@ export default function ReviewPage() {
     }
   }
 
-  async function resort() {
-    const totals = { total: 0, task: 0, update: 0, ignore: 0, review: 0, gone: 0 };
-    let after = 0;
-    setResorting("Re-sorting...");
-    try {
-      for (;;) {
-        const batch = await api<ReprocessCounts>(`/review/reprocess?limit=${BATCH}&after_id=${after}`, {
-          method: "POST",
-        });
-        for (const key of Object.keys(totals) as (keyof typeof totals)[]) totals[key] += batch[key];
-        setResorting(`Re-sorting... ${totals.total} checked`);
-        if (batch.next_after_id === null) break;
-        after = batch.next_after_id;
-      }
-      toast.show(sortSummary(totals));
-    } catch (err) {
-      toast.show(
-        `${errorMessage(err)}${totals.total ? ` (${totals.total} were already sorted.)` : ""}`,
-        { kind: "error" },
-      );
-    } finally {
-      setResorting(null);
-      reload();
-      void refreshCounts();
-    }
-  }
-
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold">Needs review</h1>
-          <p className="mt-1 text-sm text-muted">
-            Emails where the signals conflict, or that give several different deadlines. Confirm the ones
-            that are real tasks.
-          </p>
-        </div>
-        <Button onClick={() => void resort()} disabled={resorting !== null || !tasks?.length}>
-          {resorting ?? "Re-sort review queue"}
-        </Button>
+      <div>
+        <h1 className="text-xl font-bold">Needs review</h1>
+        <p className="mt-1 text-sm text-muted">
+          Emails that give several different deadlines. Confirm the ones that are real tasks and fix the
+          date if needed.
+        </p>
       </div>
 
       {error ? <ErrorNote>{error}</ErrorNote> : null}
@@ -181,7 +146,7 @@ export default function ReviewPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="min-w-0 break-words font-semibold leading-snug">{task.title}</h3>
-                    <SourceBadge source={task.source} />
+                    <SourceBadge source={task.source} name={task.source_name} />
                   </div>
                   <dl className="mt-2 space-y-0.5 text-sm">
                     <div className="flex gap-2">

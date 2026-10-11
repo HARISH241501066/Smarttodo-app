@@ -1,12 +1,12 @@
 {
-  "id": "tri15",
-  "threadId": "thr-tri15",
+  "id": "src04",
+  "threadId": "thr-src04",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767279600000",
+  "internalDate": "1767240000000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Please fill the feedback form"
+        "value": "Smart Hackathon 2026: registrations open"
       },
       {
         "name": "From",
-        "value": "Dept Office <office@college.example.edu>"
+        "value": "Hack Club <events@hackclub.example>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 69,
-      "data": "UGxlYXNlIGZpbGwgdGhlIGZvcm0gaHR0cHM6Ly9mb3Jtcy5nbGUvRmVlZGJhY2syNiBiZWZvcmUgMjUgSmFuIDIwMjYu"
+      "size": 112,
+      "data": "Sm9pbiBvdXIgaGFja2F0aG9uIHRoaXMgTm92ZW1iZXIuIFJlZ2lzdGVyIGF0IGh0dHBzOi8vaGFja2NsdWIuZXhhbXBsZS9hcHBseQpMYXN0IGRhdGUgdG8gcmVnaXN0ZXI6IDI1IE9jdCAyMDI2Lg"
     }
   }
 }

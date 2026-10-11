@@ -7,6 +7,9 @@ import type { Priority, Source, Task } from "@/lib/types";
 
 export const SOURCE_LABEL: Record<Source, string> = {
   nptel: "NPTEL",
+  digii: "Digii",
+  custom: "Source",
+  keyword: "Keyword",
   internship: "Internship",
   gform: "Google Form",
   college: "College",
@@ -17,6 +20,9 @@ export const SOURCE_LABEL: Record<Source, string> = {
 
 const SOURCE_STYLE: Record<Source, string> = {
   nptel: "bg-orange-500/15 text-orange-700 dark:text-orange-300",
+  digii: "bg-teal-500/15 text-teal-700 dark:text-teal-300",
+  custom: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  keyword: "bg-pink-500/15 text-pink-700 dark:text-pink-300",
   internship: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
   gform: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
   college: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
@@ -31,10 +37,14 @@ const PRIORITY_BORDER: Record<Priority, string> = {
   regular: "border-l-line",
 };
 
-export function SourceBadge({ source }: { source: Source }) {
+/** The badge shows the user's own name for the source (e.g. "Digii"), falling back to its kind. */
+export function SourceBadge({ source, name }: { source: Source; name?: string | null }) {
   return (
-    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${SOURCE_STYLE[source]}`}>
-      {SOURCE_LABEL[source]}
+    <span
+      data-testid="source-badge"
+      className={`max-w-[10rem] shrink-0 truncate rounded-full px-2.5 py-0.5 text-xs font-bold ${SOURCE_STYLE[source]}`}
+    >
+      {name || SOURCE_LABEL[source]}
     </span>
   );
 }
@@ -65,7 +75,7 @@ export function TaskCard({ task, now, busy, completed, onDone, onReopen, onEdit,
         <h3 className={`min-w-0 break-words text-base font-semibold leading-snug ${completed ? "line-through" : ""}`}>
           {task.title}
         </h3>
-        <SourceBadge source={task.source} />
+        <SourceBadge source={task.source} name={task.source_name} />
       </div>
 
       <p className="mt-1.5 text-sm">

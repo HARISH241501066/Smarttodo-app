@@ -1,4 +1,4 @@
-import type { Priority, ReprocessCounts, Task, TaskInput } from "@/lib/types";
+import type { Priority, Task, TaskInput } from "@/lib/types";
 
 export const GROUPS: { key: Priority; label: string; dot: string }[] = [
   { key: "urgent", label: "Urgent", dot: "bg-danger" },
@@ -62,16 +62,4 @@ export function groupBySender(tasks: Task[]): SenderGroup[] {
     .map(([sender, items]) => ({ sender, tasks: items }))
     .sort((a, b) => b.tasks.length - a.tasks.length || a.sender.localeCompare(b.sender));
   return unknown.length ? [...named, { sender: null, tasks: unknown }] : named;
-}
-
-/** One line for the toast after "Re-sort review queue". */
-export function sortSummary(c: Pick<ReprocessCounts, "task" | "update" | "ignore" | "review" | "gone">): string {
-  const moved = [
-    c.task ? `${c.task} to tasks` : null,
-    c.update ? `${c.update} to updates` : null,
-    c.ignore ? `${c.ignore} removed (codes, receipts, alerts)` : null,
-  ].filter(Boolean);
-  const left = c.review + c.gone;
-  const head = moved.length ? `Moved ${moved.join(", ")}.` : "Nothing needed moving.";
-  return `${head} ${left} still need a look.`;
 }

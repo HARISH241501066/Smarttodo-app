@@ -1,12 +1,12 @@
 {
-  "id": "tri04",
-  "threadId": "thr-tri04",
+  "id": "src06",
+  "threadId": "thr-src06",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767240000000",
+  "internalDate": "1767247200000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Your login"
+        "value": "Hackathon winner selection - pay the registration fee now"
       },
       {
         "name": "From",
-        "value": "Accounts <no-reply@accounts.example.test>"
+        "value": "Hack Club <events@hackclub.example>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 76,
-      "data": "WW91ciBPVFAgaXMgNDgyOTEzLiBJdCBpcyB2YWxpZCBmb3IgMTAgbWludXRlcy4gRG8gbm90IHNoYXJlIGl0IHdpdGggYW55b25lLg"
+      "size": 117,
+      "data": "UGF5IHRoZSByZWdpc3RyYXRpb24gZmVlIG9mIFJzLiA1MDAgdmlhIFVQSSB0byA5ODc2NTQzMjEwQHVwaSB0byBjb25maXJtIHlvdXIgaGFja2F0aG9uIHNlYXQuCkxhc3QgZGF0ZTogMjUgT2N0IDIwMjYu"
     }
   }
 }

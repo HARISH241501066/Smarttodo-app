@@ -1,12 +1,12 @@
 {
-  "id": "tri08",
-  "threadId": "thr-tri08",
+  "id": "src01",
+  "threadId": "thr-src01",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767254400000",
+  "internalDate": "1767229200000",
   "sizeEstimate": 2048,
   "payload": {
     "mimeType": "multipart/alternative",

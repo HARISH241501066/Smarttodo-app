@@ -136,7 +136,13 @@ def extract_deadline(
     )
 
 
+# Mail from a source the user chose, or one of their watch keywords, matters more than the rest.
+IMPORTANT_SOURCES = frozenset(
+    {"nptel", "digii", "internship", "custom", "keyword", "gform", "tracked"}
+)
+
+
 def priority_for(category: str, deadline: datetime | None, now: datetime) -> str:
     if deadline is not None and deadline - now <= URGENT_WINDOW:
         return "urgent"
-    return "important" if category in ("nptel", "internship", "gform", "tracked") else "regular"
+    return "important" if category in IMPORTANT_SOURCES else "regular"

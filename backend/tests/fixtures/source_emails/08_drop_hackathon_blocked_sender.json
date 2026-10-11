@@ -1,12 +1,12 @@
 {
-  "id": "tri10",
-  "threadId": "thr-tri10",
+  "id": "src08",
+  "threadId": "thr-src08",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767261600000",
+  "internalDate": "1767254400000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Your order #48213 has shipped"
+        "value": "Hackathon: register now"
       },
       {
         "name": "From",
-        "value": "Shop <orders@shop.example.test>"
+        "value": "Promo <promo@blocked.example>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 80,
-      "data": "WW91ciBvcmRlciBvZiAnRW5naW5lZXJpbmcgTWF0aGVtYXRpY3MnIGlzIG9uIGl0cyB3YXkgYW5kIHdpbGwgYXJyaXZlIGJ5IEZyaWRheS4"
+      "size": 54,
+      "data": "QSBncmVhdCBoYWNrYXRob24uIExhc3QgZGF0ZSB0byByZWdpc3RlcjogMjUgT2N0IDIwMjYu"
     }
   }
 }

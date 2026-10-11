@@ -1,12 +1,12 @@
 {
-  "id": "tri09",
-  "threadId": "thr-tri09",
+  "id": "src12",
+  "threadId": "thr-src12",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767258000000",
+  "internalDate": "1767268800000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Security alert: new sign-in on Windows"
+        "value": "Your login"
       },
       {
         "name": "From",
-        "value": "Accounts <no-reply@accounts.example.test>"
+        "value": "NPTEL <noreply@nptel.ac.in>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 81,
-      "data": "QSBuZXcgc2lnbi1pbiB0byB5b3VyIGFjY291bnQgd2FzIGRldGVjdGVkLiBJZiB0aGlzIHdhcyB5b3UsIG5vIGFjdGlvbiBpcyBuZWVkZWQu"
+      "size": 76,
+      "data": "WW91ciBPVFAgaXMgNDgyOTEzLiBJdCBpcyB2YWxpZCBmb3IgMTAgbWludXRlcy4gRG8gbm90IHNoYXJlIGl0IHdpdGggYW55b25lLg"
     }
   }
 }

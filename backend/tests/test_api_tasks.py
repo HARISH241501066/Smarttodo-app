@@ -10,10 +10,11 @@ from sqlalchemy import select, text
 
 from app.api.sync import get_gmail_api
 from app.ingest.gmail import MessageGone, RateLimited
-from app.ingest.query import DEFAULT_DENYLIST, build_query
+from app.ingest.query import build_query
 from app.main import app
 from app.models import Reminder, Task
 from app.priority import recompute_priorities
+from app.sources import load_sources
 from tests.gmail_fakes import FakeGmailApi
 from tests.test_ingest_gmail import http_error
 
@@ -451,8 +452,10 @@ def test_rescuing_a_quarantined_message_creates_a_task_with_a_link(api, engine, 
     assert body["task_created"] is True
     task = body["task"]
     assert task["link"].endswith("assessment=20") and task["link_type"] == "action"
-    assert task["source"] == "nptel"
+    assert task["source"] == "other"  # the user vouched for it; no source decided it
     assert body["quarantine"]["status"] == "rescued"
+    with engine.connect() as conn:  # a rescued task is the user's own: a rebuild must keep it
+        assert conn.execute(text("SELECT user_confirmed FROM tasks")).scalar_one() is True
     assert api.get("/quarantine").json() == []
     assert [t["id"] for t in api.get("/tasks").json()] == [task["id"]]
     with engine.connect() as conn:
@@ -512,55 +515,116 @@ def test_rescue_gmail_failures_leave_the_message_held(api, engine, uid, error, s
 
 # ---------- settings ----------
 
+DEFAULT_SETTINGS = {
+    "sources": [
+        {"name": "NPTEL", "type": "nptel", "senders": ["nptel.ac.in"]},
+        {"name": "Digii", "type": "digii", "senders": []},
+        {"name": "Internship", "type": "internship", "senders": []},
+    ],
+    "watch_keywords": ["hackathon", "ideathon", "datathon"],
+    "block_senders": [],
+    "require_deadline": False,
+    "digest_hour": 8,
+}
 
-def test_get_settings_creates_defaults(api):
-    assert api.get("/settings").json() == {
-        "denylist": list(DEFAULT_DENYLIST),
-        "allowlist": [],
-        "digest_hour": 8,
-        "always_track": [],
-    }
+
+def test_get_settings_creates_the_three_default_sources_and_keywords(api):
+    assert api.get("/settings").json() == DEFAULT_SETTINGS
 
 
 def test_put_settings_replaces_normalizes_and_feeds_the_gmail_query(api):
     resp = api.put(
         "/settings",
         json={
-            "denylist": ["Spammy.Example", "spammy.example", "@news.test"],
-            "allowlist": ["College.Example.edu"],
+            "sources": [
+                {"name": "NPTEL", "type": "nptel", "senders": ["Nptel.AC.in", "@nptel.ac.in"]},
+                {"name": "My Digii", "type": "digii", "senders": ["app.digii.example"]},
+                {"name": "Jobs", "type": "custom", "senders": ["Alerts@Jobs.test"]},
+            ],
+            "watch_keywords": ["Hackathon", "smart  india", "hackathon"],
+            "block_senders": ["Spammy.Example", "spammy.example", "@news.test"],
+            "require_deadline": True,
             "digest_hour": 20,
         },
     )
     assert resp.status_code == 200
     assert resp.json() == {
-        "denylist": ["spammy.example", "news.test"],
-        "allowlist": ["college.example.edu"],
+        "sources": [
+            {"name": "NPTEL", "type": "nptel", "senders": ["nptel.ac.in"]},
+            {"name": "My Digii", "type": "digii", "senders": ["app.digii.example"]},
+            {"name": "Jobs", "type": "custom", "senders": ["alerts@jobs.test"]},
+        ],
+        "watch_keywords": ["hackathon", "smart india"],
+        "block_senders": ["spammy.example", "news.test"],
+        "require_deadline": True,
         "digest_hour": 20,
-        "always_track": [],
     }
-    assert api.get("/settings").json() == resp.json()
-    assert "-from:spammy.example" in build_query(resp.json()["denylist"])
+    assert api.get("/settings").json() == resp.json()  # persists
+    query = build_query(load_sources(resp.json()["sources"]), resp.json()["watch_keywords"])
+    assert query == (
+        "newer_than:30d -in:spam -in:trash (from:nptel.ac.in OR from:app.digii.example OR "
+        'from:alerts@jobs.test OR hackathon OR "smart india")'
+    )
+    assert "spammy.example" not in query  # block senders are not part of the search
+
+
+def test_a_source_may_have_no_senders_yet(api):
+    body = {**DEFAULT_SETTINGS, "sources": [{"name": "Digii", "type": "digii", "senders": []}]}
+    assert api.put("/settings", json=body).status_code == 200
+    assert api.get("/settings").json()["sources"] == body["sources"]
 
 
 @pytest.mark.parametrize(
-    "payload",
+    "change",
     [
-        {"denylist": ["javascript:alert(1)"], "allowlist": [], "digest_hour": 8},
-        {"denylist": ["a b"], "allowlist": [], "digest_hour": 8},
-        {"denylist": ["x.test OR from:boss@work.test"], "allowlist": [], "digest_hour": 8},
-        {"denylist": [""], "allowlist": [], "digest_hour": 8},
-        {"denylist": [], "allowlist": ["-bad"], "digest_hour": 8},
-        {"denylist": [f"d{i}.test" for i in range(201)], "allowlist": [], "digest_hour": 8},
-        {"denylist": [], "allowlist": [], "digest_hour": 24},
-        {"denylist": [], "allowlist": [], "digest_hour": -1},
-        {"denylist": [], "allowlist": []},
-        {"denylist": "linkedin.com", "allowlist": [], "digest_hour": 8},
+        {"sources": [{"name": "X", "type": "banana", "senders": []}]},
+        {"sources": [{"name": "", "type": "custom", "senders": []}]},
+        {"sources": [{"name": "X", "type": "custom", "senders": ["javascript:alert(1)"]}]},
+        {"sources": [{"name": "X", "type": "custom", "senders": ["a b"]}]},
+        {
+            "sources": [
+                {"name": "X", "type": "custom", "senders": ["x.test OR from:boss@work.test"]}
+            ]
+        },
+        {"sources": [{"name": "X", "type": "custom", "senders": [""]}]},
+        {
+            "sources": [
+                {"name": "X", "type": "custom", "senders": [f"d{i}.test" for i in range(201)]}
+            ]
+        },
+        {
+            "sources": [
+                {"name": "Same", "type": "custom", "senders": []},
+                {"name": "same", "type": "nptel", "senders": []},
+            ]
+        },
+        {"sources": [{"name": f"S{i}", "type": "custom", "senders": []} for i in range(21)]},
+        {"watch_keywords": ["a) OR (from:boss@work.test"]},
+        {"watch_keywords": ["in:inbox"]},
+        {"watch_keywords": [""]},
+        {"watch_keywords": [f"k{i}" for i in range(51)]},
+        {"block_senders": ["-bad"]},
+        {"block_senders": "linkedin.com"},
+        {"digest_hour": 24},
+        {"digest_hour": -1},
+        {"require_deadline": "maybe"},
     ],
 )
-def test_put_settings_validation_errors(api, payload):
+def test_put_settings_validation_errors(api, change):
     before = api.get("/settings").json()
-    assert api.put("/settings", json=payload).status_code == 422
+    assert api.put("/settings", json={**DEFAULT_SETTINGS, **change}).status_code == 422
     assert api.get("/settings").json() == before
+
+
+def test_put_settings_requires_every_field(api):
+    for missing in ("sources", "watch_keywords", "block_senders", "digest_hour"):
+        body = {k: v for k, v in DEFAULT_SETTINGS.items() if k != missing}
+        assert api.put("/settings", json=body).status_code == 422
+
+
+def test_settings_are_per_user(api, api_b):
+    api.put("/settings", json={**DEFAULT_SETTINGS, "require_deadline": True})
+    assert api_b.get("/settings").json()["require_deadline"] is False
 
 
 # ---------- per-user isolation ----------
@@ -592,8 +656,10 @@ def test_users_cannot_see_or_rescue_each_others_quarantine(api, api_b, engine, u
 
 
 def test_settings_and_new_tasks_are_per_user(api, api_b):
-    api.put("/settings", json={"denylist": ["only-a.test"], "allowlist": [], "digest_hour": 5})
-    assert api_b.get("/settings").json()["denylist"] == list(DEFAULT_DENYLIST)
+    api.put(
+        "/settings", json={**DEFAULT_SETTINGS, "block_senders": ["only-a.test"], "digest_hour": 5}
+    )
+    assert api_b.get("/settings").json()["block_senders"] == []
     api.post("/tasks", json={"title": "mine"})
     assert api_b.get("/tasks").json() == []
 

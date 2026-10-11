@@ -104,6 +104,7 @@ def create_task(
         title=body.title,
         notes=body.notes,
         source="manual",
+        user_confirmed=True,
         deadline=deadline,
         priority=body.priority or priority_for("manual", deadline, now),
         status="open",
@@ -142,6 +143,7 @@ def update_task(
             raise HTTPException(422, f"{required} cannot be null")
 
     now = datetime.now(UTC)
+    task.user_confirmed = True  # the user has touched it: a rebuild must leave it alone
     if "title" in sent:
         task.title = body.title
     if "notes" in sent:
@@ -246,6 +248,7 @@ def review_confirm(
         _set_link(task, body.link)
     task.status = "open"
     task.confidence = 1.0  # confirmed by the user
+    task.user_confirmed = True
     task.updated_at = now
     session.flush()
     sync_reminders(session, task, now=now, created=True)

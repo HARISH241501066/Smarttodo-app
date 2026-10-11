@@ -1,12 +1,12 @@
 {
-  "id": "tri14",
-  "threadId": "thr-tri14",
+  "id": "src02",
+  "threadId": "thr-src02",
   "labelIds": [
     "INBOX",
     "UNREAD"
   ],
   "snippet": "synthetic",
-  "internalDate": "1767276000000",
+  "internalDate": "1767232800000",
   "sizeEstimate": 2048,
   "payload": {
     "partId": "0",
@@ -15,11 +15,11 @@
     "headers": [
       {
         "name": "Subject",
-        "value": "Hello"
+        "value": "You have submitted the quiz: Week 9 Quiz"
       },
       {
         "name": "From",
-        "value": "Ravi <ravi.k@gmail.com>"
+        "value": "Digii <no-reply@digii.example>"
       },
       {
         "name": "Authentication-Results",
@@ -31,8 +31,8 @@
       }
     ],
     "body": {
-      "size": 45,
-      "data": "SnVzdCBzYXlpbmcgaGksIGhvcGUgeW91ciB3ZWVrIGlzIGdvaW5nIHdlbGwu"
+      "size": 164,
+      "data": "WW91IGhhdmUgc3VjY2Vzc2Z1bGx5IHN1Ym1pdHRlZCB0aGUgV2VlayA5IFF1aXouIFlvdXIgYXR0ZW1wdCBoYXMgYmVlbiByZWNvcmRlZC4KWW91IGNhbiBjaGVjayB5b3VyIHJlc3VsdCBhdCBodHRwczovL2FwcC5kaWdpaS5leGFtcGxlL3N0dWRlbnQvcXVpei9yZXN1bHQ_cXVpeklkPTk"
     }
   }
 }

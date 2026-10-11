@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDetail } from "@/lib/api";
-import { buildConfirm, buildCreate, buildPatch, groupBySender, sortSummary } from "@/lib/tasks";
+import { buildConfirm, buildCreate, buildPatch, groupBySender } from "@/lib/tasks";
 import {
   domainOf,
   formatCountdown,
@@ -87,6 +87,7 @@ const task = (over: Partial<Task> = {}): Task => ({
   deadline_display: null,
   priority: "important",
   source: "nptel",
+  source_name: "NPTEL",
   status: "open",
   link: "https://example.com/q",
   link_type: "action",
@@ -139,7 +140,7 @@ describe("task request bodies", () => {
   });
 });
 
-describe("review grouping and the re-sort summary", () => {
+describe("review grouping", () => {
   const item = (id: number, sender: string | null): Task => task({ id, title: `t${id}`, sender_email: sender });
 
   it("groups by sender address, biggest first, with unknown senders last", () => {
@@ -162,17 +163,5 @@ describe("review grouping and the re-sort summary", () => {
 
   it("handles nothing", () => {
     expect(groupBySender([])).toEqual([]);
-  });
-
-  it("summarises what moved", () => {
-    expect(sortSummary({ task: 71, update: 12, ignore: 9, review: 5, gone: 2 })).toBe(
-      "Moved 71 to tasks, 12 to updates, 9 removed (codes, receipts, alerts). 7 still need a look.",
-    );
-    expect(sortSummary({ task: 0, update: 0, ignore: 0, review: 3, gone: 0 })).toBe(
-      "Nothing needed moving. 3 still need a look.",
-    );
-    expect(sortSummary({ task: 1, update: 0, ignore: 0, review: 0, gone: 0 })).toBe(
-      "Moved 1 to tasks. 0 still need a look.",
-    );
   });
 });

@@ -1,6 +1,17 @@
 export type Priority = "urgent" | "important" | "regular";
 export type Status = "open" | "done" | "needs_review" | "dismissed";
-export type Source = "manual" | "nptel" | "internship" | "gform" | "college" | "other" | "tracked";
+export type Source =
+  | "manual"
+  | "nptel"
+  | "digii"
+  | "internship"
+  | "custom"
+  | "keyword"
+  | "gform"
+  | "college"
+  | "other"
+  | "tracked";
+export type SourceType = "nptel" | "digii" | "internship" | "custom";
 
 export interface Task {
   id: number;
@@ -11,6 +22,7 @@ export interface Task {
   deadline_display: string | null; // e.g. "Tue, 22 Jan 2030, 11:59 PM IST"
   priority: Priority;
   source: Source;
+  source_name: string | null; // the user's name for the source, or the matched keyword
   status: Status;
   link: string | null;
   link_type: "action" | "gmail" | null;
@@ -20,29 +32,6 @@ export interface Task {
   sender_email: string | null;
   created_at: string;
   updated_at: string;
-}
-
-/** An informational email (results, announcements): worth seeing, nothing to do. */
-export interface UpdateItem {
-  id: number;
-  title: string;
-  source: Source;
-  link: string | null;
-  link_type: "action" | "gmail" | null;
-  link_domain: string | null;
-  received_at: string | null;
-  created_at: string;
-}
-
-/** Counts from one batch of "Re-sort review queue". */
-export interface ReprocessCounts {
-  total: number;
-  task: number;
-  update: number;
-  ignore: number;
-  review: number;
-  gone: number;
-  next_after_id: number | null;
 }
 
 export interface NotificationItem {
@@ -78,11 +67,47 @@ export interface RescueResult {
   task_created: boolean;
 }
 
+export interface SourceConfig {
+  name: string;
+  type: SourceType;
+  senders: string[]; // domains (nptel.ac.in) or full addresses
+}
+
 export interface SettingsData {
-  denylist: string[];
-  allowlist: string[];
-  always_track: string[];
+  sources: SourceConfig[];
+  watch_keywords: string[];
+  block_senders: string[];
+  require_deadline: boolean;
   digest_hour: number;
+}
+
+/** What "Rebuild from sources" would look at, from stored data only. */
+export interface RebuildPreview {
+  window_days: number;
+  rechecked: number;
+  will_remove: number;
+  review_items: number;
+  protected: number;
+}
+
+export interface RebuildResult {
+  removed: number;
+  created: number;
+  kept: number;
+  tasks_by_source: Record<string, number>;
+  dropped: number;
+  ignored: number;
+  suspicious: number;
+  review: number;
+  fetched: number;
+  failed: number;
+  incomplete: boolean;
+}
+
+export interface RebuildStatus {
+  state: "idle" | "running" | "done" | "error";
+  result?: RebuildResult;
+  error?: string;
 }
 
 export interface Me {
