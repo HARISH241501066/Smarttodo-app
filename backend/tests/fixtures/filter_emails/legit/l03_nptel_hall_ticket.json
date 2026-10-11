@@ -1,0 +1,38 @@
+{
+  "id": "l03",
+  "threadId": "thr-l03",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767956400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "NPTEL hall tickets released"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@nptel.ac.in header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@nptel.ac.in designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@nptel.ac.in;"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 77,
+      "data": "WW91ciBoYWxsIHRpY2tldCBhbmQgZXhhbSBjZW50cmUgZGV0YWlscyBhcmUgbm93IGF2YWlsYWJsZSBpbiB5b3VyIGRhc2hib2FyZC4"
+    }
+  }
+}

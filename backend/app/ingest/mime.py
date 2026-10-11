@@ -8,7 +8,9 @@ length) raises MessageParseError.
 
 import base64
 import binascii
+import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.header import decode_header, make_header
@@ -17,8 +19,11 @@ from typing import Any
 
 from bs4 import BeautifulSoup
 
+logger = logging.getLogger(__name__)
+
 MAX_DEPTH = 20
 MAX_BODY_CHARS = 100_000
+MAX_FETCHED_BYTES = 200 * 1024  # cap for text parts fetched via users.messages.attachments.get
 _BLOCK_TAGS = ("p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "ul", "ol")
 _CHARSET_RE = re.compile(r"""charset\s*=\s*["']?([\w.:-]+)""", re.IGNORECASE)
 
@@ -39,6 +44,13 @@ class ParsedMessage:
     subject: str = field(repr=False)
     body_text: str = field(repr=False)
     has_attachments: bool
+    # Topmost Authentication-Results header (the receiving server's own verdict); "" if absent.
+    authentication_results: str = field(default="", repr=False)
+    internal_date_ms: int | None = None
+
+
+# (message_id, attachment_id) -> base64url data, as returned by users.messages.attachments.get
+AttachmentFetcher = Callable[[str, str], str]
 
 
 def _b64decode(data: str) -> bytes:
@@ -104,14 +116,30 @@ def _is_attachment(part: dict[str, Any], mime: str) -> bool:
     return bool(part.get("body", {}).get("attachmentId")) and not mime.startswith("text/")
 
 
-def _extract(part: dict[str, Any], depth: int, found: dict[str, bool]) -> str:
+def _fetch_text_part(part: dict[str, Any], ctx: dict[str, Any]) -> str | None:
+    """Base64 data for a text part delivered via attachmentId; None when it can't be fetched."""
+    attachment_id = part.get("body", {}).get("attachmentId")
+    fetch = ctx["fetch"]
+    if not attachment_id or fetch is None:
+        return None
+    data = fetch(ctx["message_id"], attachment_id) or ""
+    data = "".join(data.split())
+    # 4 base64 chars = 3 bytes; cut on a 4-char boundary so the truncated prefix still decodes.
+    max_chars = (MAX_FETCHED_BYTES // 3 + 1) * 4
+    if len(data) > max_chars:
+        logger.warning("message %s: fetched text body truncated", ctx["message_id"])
+        data = data[:max_chars]
+    return data
+
+
+def _extract(part: dict[str, Any], depth: int, ctx: dict[str, Any]) -> str:
     if depth > MAX_DEPTH:
         raise MessageParseError("MIME nesting too deep")
     mime = (part.get("mimeType") or "").lower()
     children = part.get("parts") or []
 
     if children:
-        results = [(c.get("mimeType", "").lower(), _extract(c, depth + 1, found)) for c in children]
+        results = [(c.get("mimeType", "").lower(), _extract(c, depth + 1, ctx)) for c in children]
         if mime == "multipart/alternative":
             for child_mime, text in results:
                 if child_mime == "text/plain" and text:
@@ -120,18 +148,33 @@ def _extract(part: dict[str, Any], depth: int, found: dict[str, bool]) -> str:
         return "\n\n".join(text for _, text in results if text)
 
     if _is_attachment(part, mime):
-        found["attachments"] = True
+        ctx["attachments"] = True
         return ""
     if mime not in ("text/plain", "text/html"):
         return ""
     data = part.get("body", {}).get("data")
-    if not data:
-        return ""
-    text = _decode_bytes(_b64decode(data), _headers(part).get("content-type", ""))
+    if data:
+        raw = _b64decode(data)
+    else:
+        fetched = _fetch_text_part(part, ctx)
+        if not fetched:
+            return ""
+        raw = _b64decode(fetched)[:MAX_FETCHED_BYTES]
+    text = _decode_bytes(raw, _headers(part).get("content-type", ""))
     return _html_to_text(text) if mime == "text/html" else text.strip()
 
 
-def parse_message(raw: dict[str, Any]) -> ParsedMessage:
+def _first_header(part: dict[str, Any], name: str) -> str:
+    for h in part.get("headers", []):
+        if isinstance(h, dict) and h.get("name", "").lower() == name:
+            return h.get("value", "")
+    return ""
+
+
+def parse_message(
+    raw: dict[str, Any], fetch_attachment: AttachmentFetcher | None = None
+) -> ParsedMessage:
+    """`fetch_attachment` is only called for filename-less text parts that carry an attachmentId."""
     payload = raw.get("payload") or {}
     headers = _headers(payload)
     sender = _decode_header_value(headers.get("from", ""))
@@ -141,8 +184,8 @@ def parse_message(raw: dict[str, Any]) -> ParsedMessage:
         if str(internal or "").isdigit()
         else None
     )
-    found = {"attachments": False}
-    body = _extract(payload, 0, found)
+    ctx: dict[str, Any] = {"attachments": False, "fetch": fetch_attachment, "message_id": raw["id"]}
+    body = _extract(payload, 0, ctx)
     return ParsedMessage(
         message_id=raw["id"],
         thread_id=raw.get("threadId", ""),
@@ -152,5 +195,7 @@ def parse_message(raw: dict[str, Any]) -> ParsedMessage:
         sender=sender[:500],
         subject=_decode_header_value(headers.get("subject", ""))[:500],
         body_text=body[:MAX_BODY_CHARS],
-        has_attachments=found["attachments"],
+        has_attachments=ctx["attachments"],
+        authentication_results=" ".join(_first_header(payload, "authentication-results").split()),
+        internal_date_ms=int(internal) if str(internal or "").isdigit() else None,
     )

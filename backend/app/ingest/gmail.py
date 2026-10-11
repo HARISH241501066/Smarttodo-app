@@ -41,6 +41,10 @@ class GmailApi(Protocol):
 
     def get_message(self, message_id: str) -> dict[str, Any]: ...
 
+    def get_attachment(self, message_id: str, attachment_id: str) -> str:
+        """Base64url data of one attachment/large body part."""
+        ...
+
     def list_history(
         self, start_history_id: str, page_token: str | None
     ) -> tuple[list[dict[str, Any]], str | None, str | None]:
@@ -131,6 +135,20 @@ class GoogleGmailApi:
             if exc.resp.status == 404:
                 raise MessageGone(message_id) from exc
             raise
+
+    def get_attachment(self, message_id: str, attachment_id: str) -> str:
+        try:
+            resp = self._execute(
+                self._service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=message_id, id=attachment_id)
+            )
+        except HttpError as exc:
+            if exc.resp.status == 404:
+                raise MessageGone(message_id) from exc
+            raise
+        return resp.get("data", "")
 
     def list_history(
         self, start_history_id: str, page_token: str | None

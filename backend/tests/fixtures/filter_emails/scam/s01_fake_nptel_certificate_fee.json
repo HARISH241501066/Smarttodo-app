@@ -1,0 +1,38 @@
+{
+  "id": "s01",
+  "threadId": "thr-s01",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767589200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "NPTEL Certificate Dispatch - Action Required"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL Team <nptel.certificates.help@gmail.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@gmail.com header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@gmail.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@gmail.com; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=gmail.com"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 173,
+      "data": "RGVhciBjYW5kaWRhdGUsIHlvdXIgTlBURUwgY2VydGlmaWNhdGUgaXMgcmVhZHkuIFRvIGRpc3BhdGNoIGl0IHlvdSBtdXN0IHBheSBhIHByb2Nlc3NpbmcgZmVlIG9mIFJzLiAxNDk5IHVzaW5nIFVQSSB0byA5OHh4eHh4eDAxQHVwaS4gUGF5IGltbWVkaWF0ZWx5IHRvIGF2b2lkIGNhbmNlbGxhdGlvbi4"
+    }
+  }
+}

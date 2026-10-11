@@ -181,8 +181,8 @@ def test_quarantine_status_accepts_valid_values(engine):
         uid = _user(conn)
         for status in ("held", "rescued", "confirmed_scam"):
             conn.execute(
-                text("INSERT INTO quarantine (user_id, message_id, status) VALUES (:u, 'm', :s)"),
-                {"u": uid, "s": status},
+                text("INSERT INTO quarantine (user_id, message_id, status) VALUES (:u, :m, :s)"),
+                {"u": uid, "m": f"m-{status}", "s": status},
             )
 
 
@@ -204,4 +204,5 @@ def test_every_check_constraint_in_db_is_covered(engine):
         "ck_tasks_priority",
         "ck_tasks_status",
         "ck_quarantine_status",
+        "ck_processed_messages_decision",
     }

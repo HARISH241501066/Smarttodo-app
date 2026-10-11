@@ -1,0 +1,38 @@
+{
+  "id": "s03",
+  "threadId": "thr-s03",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767596400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "You are selected - work from home"
+      },
+      {
+        "name": "From",
+        "value": "Hiring Desk <hiring.desk.jobs@outlook.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; spf=softfail (google.com: domain of bounce@outlook.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@outlook.com;"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 162,
+      "data": "WW91IGhhdmUgYmVlbiBzaG9ydGxpc3RlZCBhbmQgc2VsZWN0ZWQgd2l0aG91dCBhbnkgaW50ZXJ2aWV3IGZvciBhIHdvcmsgZnJvbSBob21lIHJvbGUuIE1lc3NhZ2UgdXMgb24gVGVsZWdyYW0gKzkxIDkwMDAwIDAwMDAyIHRvIHJlY2VpdmUgeW91ciBvZmZlciBsZXR0ZXIgdG9kYXku"
+    }
+  }
+}

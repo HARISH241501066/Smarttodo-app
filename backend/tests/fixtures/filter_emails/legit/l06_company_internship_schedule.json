@@ -1,0 +1,38 @@
+{
+  "id": "l06",
+  "threadId": "thr-l06",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767967200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Interview schedule - Acme Labs internship"
+      },
+      {
+        "name": "From",
+        "value": "Acme Labs Recruiting <recruiting@acme-labs.example>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@acme-labs.example header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@acme-labs.example designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@acme-labs.example;"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 136,
+      "data": "SGVsbG8sIHlvdXIgdGVjaG5pY2FsIGludGVydmlldyBpcyBzY2hlZHVsZWQgZm9yIDI5IEphbiAyMDI2IGF0IDExIEFNLiBUaGUgc3RpcGVuZCBpcyBScy4gMTUwMDAgcGVyIG1vbnRoLCBwYWlkIG9uIHRoZSBsYXN0IHdvcmtpbmcgZGF5Lg"
+    }
+  }
+}

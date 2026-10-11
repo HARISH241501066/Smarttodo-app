@@ -31,6 +31,7 @@ TASK_SOURCES = ("manual", "nptel", "internship", "gform", "college", "other")
 TASK_PRIORITIES = ("urgent", "important", "regular")
 TASK_STATUSES = ("open", "done", "needs_review", "dismissed")
 QUARANTINE_STATUSES = ("held", "rescued", "confirmed_scam")
+PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -103,7 +104,10 @@ class Reminder(Base):
 
 class Quarantine(Base):
     __tablename__ = "quarantine"
-    __table_args__ = (CheckConstraint(_in("status", QUARANTINE_STATUSES), name="status"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "message_id", name="uq_quarantine_user_id_message_id"),
+        CheckConstraint(_in("status", QUARANTINE_STATUSES), name="status"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int] = mapped_column(
@@ -116,6 +120,21 @@ class Quarantine(Base):
     reasons: Mapped[Any] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
     status: Mapped[str] = mapped_column(String(16), server_default="held", nullable=False)
     created_at: Mapped[datetime] = _ts()
+
+
+class ProcessedMessage(Base):
+    """Idempotency record: one row per handled message. Never holds bodies, subjects or senders."""
+
+    __tablename__ = "processed_messages"
+    __table_args__ = (CheckConstraint(_in("decision", PROCESSED_DECISIONS), name="decision"),)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    message_id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    decision: Mapped[str] = mapped_column(String(16), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(255))
+    processed_at: Mapped[datetime] = _ts()
 
 
 class SyncState(Base):

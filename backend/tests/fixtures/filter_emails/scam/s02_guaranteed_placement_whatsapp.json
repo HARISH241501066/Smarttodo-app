@@ -1,0 +1,38 @@
+{
+  "id": "s02",
+  "threadId": "thr-s02",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767592800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "100% Placement Guarantee - Join Now"
+      },
+      {
+        "name": "From",
+        "value": "HR Team <hr.careers2026@yahoo.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; spf=fail (google.com: domain of bounce@yahoo.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@yahoo.com; dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=yahoo.com"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 146,
+      "data": "Q29uZ3JhdHVsYXRpb25zISBKb2luIG91ciBwcm9ncmFtIGFuZCBnZXQgZ3VhcmFudGVlZCBwbGFjZW1lbnQgaW4gYSB0b3AgTU5DLiBDb250YWN0IG91ciBtYW5hZ2VyIG9uIFdoYXRzQXBwICs5MSA5MDAwMCAwMDAwMSB0byBjb25maXJtIHlvdXIgc2VhdC4"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "l04",
+  "threadId": "thr-l04",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767960000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your application status on Internshala"
+      },
+      {
+        "name": "From",
+        "value": "Internshala <no-reply@internshala.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@internshala.com header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@internshala.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@internshala.com; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=internshala.com"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 124,
+      "data": "R29vZCBuZXdzISBUaGUgZW1wbG95ZXIgdmlld2VkIHlvdXIgYXBwbGljYXRpb24gZm9yIHRoZSBXZWIgRGV2ZWxvcG1lbnQgaW50ZXJuc2hpcC4gQ29tcGxldGUgeW91ciBhc3Nlc3NtZW50IGJ5IDMwIEphbiAyMDI2Lg"
+    }
+  }
+}

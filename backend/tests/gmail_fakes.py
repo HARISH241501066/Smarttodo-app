@@ -50,6 +50,7 @@ class FakeGmailApi:
         self.history_error: Exception | None = None
         self.list_error: Exception | None = None
         self.get_errors: dict[str, Exception] = {}
+        self.attachments: dict[tuple[str, str], str] = {}
         self.calls: list[tuple] = []
 
     def profile_history_id(self) -> str:
@@ -72,6 +73,10 @@ class FakeGmailApi:
         if message_id not in self.messages:
             raise MessageGone(message_id)
         return self.messages[message_id]
+
+    def get_attachment(self, message_id, attachment_id):
+        self.calls.append(("attachment", message_id, attachment_id))
+        return self.attachments[(message_id, attachment_id)]
 
     def list_history(self, start_history_id, page_token):
         self.calls.append(("history", start_history_id, page_token))

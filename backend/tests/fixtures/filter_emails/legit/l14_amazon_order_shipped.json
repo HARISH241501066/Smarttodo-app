@@ -1,0 +1,38 @@
+{
+  "id": "l14",
+  "threadId": "thr-l14",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767996000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your Amazon.in order has shipped"
+      },
+      {
+        "name": "From",
+        "value": "Amazon.in <shipment-tracking@amazon.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@amazon.in header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@amazon.in designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@amazon.in; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=amazon.in"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 134,
+      "data": "WW91ciBvcmRlciBvZiAnRW5naW5lZXJpbmcgTWF0aGVtYXRpY3MnIHdpbGwgYXJyaXZlIGJ5IDE4IEphbiAyMDI2LiBUcmFjayB5b3VyIHBhY2thZ2UgaW4gWW91ciBPcmRlcnMuIFBheW1lbnQgd2FzIHJlY2VpdmVkIG9uIDE0IEphbi4"
+    }
+  }
+}

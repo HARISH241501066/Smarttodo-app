@@ -1,0 +1,38 @@
+{
+  "id": "s04",
+  "threadId": "thr-s04",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767600000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Internshala Trainee Program - Confirm your seat"
+      },
+      {
+        "name": "From",
+        "value": "Internshala Trainee Team <jobs@mail-internshala-trainee.xyz>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=none header.i=@mail-internshala-trainee.xyz header.s=sel1 header.b=Zm9vYmFy; spf=fail (google.com: domain of bounce@mail-internshala-trainee.xyz designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@mail-internshala-trainee.xyz; dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=mail-internshala-trainee.xyz"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 145,
+      "data": "WW91ciBpbnRlcm5zaGlwIGlzIGFwcHJvdmVkLiBQYXkgYSByZWZ1bmRhYmxlIHNlY3VyaXR5IGRlcG9zaXQgb2YgUnMuIDIwMDAgdmlhIEdvb2dsZSBQYXkgdG8gY29uZmlybSB5b3VyIHNlYXQuIExhc3QgY2hhbmNlLCBwYXkgd2l0aGluIDI0IGhvdXJzLg"
+    }
+  }
+}

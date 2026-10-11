@@ -1,0 +1,38 @@
+{
+  "id": "l12",
+  "threadId": "thr-l12",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767988800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Campus placement drive - Zenith Systems"
+      },
+      {
+        "name": "From",
+        "value": "Placement Cell <placement@college.example.edu>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@college.example.edu header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@college.example.edu designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@college.example.edu; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=college.example.edu"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 182,
+      "data": "WmVuaXRoIFN5c3RlbXMgd2lsbCB2aXNpdCBvbiAxMCBGZWIgZm9yIGEgY2FtcHVzIGRyaXZlLiBSZWdpc3RlciBvbiB0aGUgcGxhY2VtZW50IHBvcnRhbCBieSA1IEZlYi4gRWxpZ2libGU6IENHUEEgNy4wIGFuZCBhYm92ZS4gU2VsZWN0aW9uIGlzIHRocm91Z2ggYW4gYXB0aXR1ZGUgdGVzdCBhbmQgaW50ZXJ2aWV3cy4"
+    }
+  }
+}

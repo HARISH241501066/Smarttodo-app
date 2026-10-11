@@ -1,0 +1,38 @@
+{
+  "id": "s10",
+  "threadId": "thr-s10",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767621600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Offer Letter - Software Trainee"
+      },
+      {
+        "name": "From",
+        "value": "Careers <careers@infotech-solutions-hr.example>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; spf=fail (google.com: domain of bounce@infotech-solutions-hr.example designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@infotech-solutions-hr.example;"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 177,
+      "data": "SW5mb3RlY2ggU29sdXRpb25zIFB2dCBMdGQgaXMgcGxlYXNlZCB0byBvZmZlciB5b3UgdGhlIHBvc3QuIFlvdSBhcmUgc2VsZWN0ZWQsIG5vIGludGVydmlldyByZXF1aXJlZC4gUGF5IHRoZSBsYXB0b3Aga2l0IHNlY3VyaXR5IGRlcG9zaXQgb2YgUnMuIDQ1MDAgdG8gb3VyIGFjY291bnQgaW1tZWRpYXRlbHku"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "l08",
+  "threadId": "thr-l08",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767974400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your response to Hackathon registration"
+      },
+      {
+        "name": "From",
+        "value": "Google Forms <forms-receipts-noreply@google.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@google.com header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@google.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@google.com; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=google.com"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 80,
+      "data": "VGhhbmtzIGZvciBmaWxsaW5nIGluICdIYWNrYXRob24gcmVnaXN0cmF0aW9uJy4gWW91ciByZXNwb25zZSBoYXMgYmVlbiByZWNvcmRlZC4"
+    }
+  }
+}

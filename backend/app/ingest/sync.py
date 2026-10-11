@@ -36,7 +36,9 @@ MAX_RETRY_ATTEMPTS = 3
 LOCK_NAMESPACE = 0x53594E43  # "SYNC"
 ERROR_MAX_CHARS = 200
 
-Sink = Callable[[User, ParsedMessage], None]
+# A sink returns None (plain delivery) or the decision it took: "passed" | "quarantined" |
+# "skipped" (already handled) | "failed" (the sink recorded the failure itself and swallowed it).
+Sink = Callable[[User, ParsedMessage], str | None]
 
 
 class SyncInProgress(Exception):
@@ -54,11 +56,12 @@ class SyncResult:
     failed: int = 0  # recorded in ingest_failures this run
     deferred: int = 0  # not attempted because Gmail rate-limited us; retried next sync
     rate_limited: bool = False
+    decisions: dict[str, int] = field(default_factory=dict)  # sink decisions, when it reports them
     history_id: str | None = None
     delivered_ids: list[str] = field(default_factory=list)
 
 
-def discard_sink(user: User, message: ParsedMessage) -> None:
+def discard_sink(user: User, message: ParsedMessage) -> str | None:
     """Placeholder sink until the filtering/task modules exist."""
 
 
@@ -124,7 +127,7 @@ def _incremental_ids(
             return ids, latest
 
 
-def _record_failure(session: Session, user_id: int, message_id: str, exc: Exception) -> None:
+def record_failure(session: Session, user_id: int, message_id: str, exc: Exception) -> None:
     error = f"{type(exc).__name__}: {exc}"[:ERROR_MAX_CHARS]
     row = session.scalar(
         select(IngestFailure).where(
@@ -250,22 +253,29 @@ def _process_message(
         else:
             raw = gmail.get_message(message_id)
             result.fetched += 1
-            parsed = parse_message(raw)
+            parsed = parse_message(raw, gmail.get_attachment)
             if not labels_allowed(parsed.labels) or sender_matches_denylist(
                 parsed.sender, denylist
             ):
                 outcome = "skipped"
             else:
                 with session.begin_nested():
-                    sink(user, parsed)
-                outcome = "delivered"
+                    decision = sink(user, parsed)
+                if decision:
+                    result.decisions[decision] = result.decisions.get(decision, 0) + 1
+                outcome = {"skipped": "skipped", "failed": "failed"}.get(decision, "delivered")
     except MessageGone:
         outcome = "skipped"
     except RateLimited:
         raise
     except Exception as exc:
         logger.warning("message %s failed: %s", message_id, type(exc).__name__)
-        _record_failure(session, user.id, message_id, exc)
+        record_failure(session, user.id, message_id, exc)
+        session.commit()
+        result.failed += 1
+        return
+
+    if outcome == "failed":  # the sink already wrote processed_messages + ingest_failures
         session.commit()
         result.failed += 1
         return

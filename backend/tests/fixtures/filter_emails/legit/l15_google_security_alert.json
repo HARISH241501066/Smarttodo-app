@@ -1,0 +1,38 @@
+{
+  "id": "l15",
+  "threadId": "thr-l15",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767999600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Security alert: new sign-in on Windows"
+      },
+      {
+        "name": "From",
+        "value": "Google <no-reply@accounts.google.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@accounts.google.com header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@accounts.google.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@accounts.google.com; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=accounts.google.com"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 108,
+      "data": "QSBuZXcgc2lnbi1pbiB0byB5b3VyIEdvb2dsZSBBY2NvdW50IHdhcyBkZXRlY3RlZCBvbiBhIFdpbmRvd3MgZGV2aWNlLiBJZiB0aGlzIHdhcyB5b3UsIG5vIGFjdGlvbiBpcyBuZWVkZWQu"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "s05",
+  "threadId": "thr-s05",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767603600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Amazon Careers: part-time job, earn daily"
+      },
+      {
+        "name": "From",
+        "value": "Amazon Careers <amazon.hiring.desk@hotmail.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass header.i=@hotmail.com header.s=sel1 header.b=Zm9vYmFy; spf=pass (google.com: domain of bounce@hotmail.com designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@hotmail.com; dmarc=pass (p=NONE sp=NONE dis=NONE) header.from=hotmail.com"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 170,
+      "data": "RWFybiBScy4gNTAwMCBwZXIgZGF5IHJldmlld2luZyBwcm9kdWN0cy4gUGF5IGEgcmVnaXN0cmF0aW9uIGZlZSBvZiBScy4gNTAwIGJ5IGJhbmsgdHJhbnNmZXIgdG8gc3RhcnQuIEFjY291bnQgbnVtYmVyIGFuZCBJRlNDIHdpbGwgYmUgc2hhcmVkIG9uIFdoYXRzQXBwICs5MSA5MDAwMCAwMDAwMy4"
+    }
+  }
+}

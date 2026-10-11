@@ -1,0 +1,38 @@
+{
+  "id": "s06",
+  "threadId": "thr-s06",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767607200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Google Scholarship Award - claim now"
+      },
+      {
+        "name": "From",
+        "value": "Google Scholarship Team <awards@google-scholarships.info>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; spf=fail (google.com: domain of bounce@google-scholarships.info designates 203.0.113.7 as permitted sender) smtp.mailfrom=bounce@google-scholarships.info; dmarc=fail (p=NONE sp=NONE dis=NONE) header.from=google-scholarships.info"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 127,
+      "data": "WW91IGhhdmUgd29uIGEgR29vZ2xlIHNjaG9sYXJzaGlwLiBQYXkgdGhlIHByb2Nlc3NpbmcgZmVlIG9mIFJzLiA5OTkgaW1tZWRpYXRlbHkgdGhyb3VnaCBQaG9uZVBlIHRvIHJlbGVhc2UgdGhlIGZ1bmRzLiBBY3Qgbm93Lg"
+    }
+  }
+}
