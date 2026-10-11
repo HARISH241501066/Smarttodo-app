@@ -131,9 +131,15 @@ def ingest_message(
                     link.link_type,
                     link.confidence,
                 )
-            if own.deadline is None and deadline.deadline is not None:  # a better parse now
+            # A better reading of the deadline (after a parser fix) replaces the stored one, unless
+            # a newer email has since changed it (an extension): then this older message is not the
+            # latest word on it.
+            latest_word = own.source_received_at in (None, message.received_at)
+            if deadline.deadline is not None and own.deadline != deadline.deadline and latest_word:
                 own.deadline, own.confidence = deadline.deadline, deadline.confidence
                 own.priority = priority_for(source, deadline.deadline, now)
+                if own.status == "done" and deadline.deadline > now:
+                    own.status = "open"  # it was only completed automatically on a wrong date
         return own, False
     existing = _find_existing(session, user.id, source, source_name, message.subject)
     if existing is not None:

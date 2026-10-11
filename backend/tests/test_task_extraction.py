@@ -279,3 +279,25 @@ def test_same_topic_rejects_unrelated_subjects():
 def test_clean_title_strips_reply_prefixes():
     assert clean_title("Re: Fwd: RE: Assignment 3") == "Assignment 3"
     assert clean_title("   ") == "(no subject)"
+
+
+def test_a_weekday_name_before_the_actual_date_does_not_shift_the_deadline():
+    """NPTEL: "submitted on or before Wednesday, [14/10/2026], 23:59 IST" read on Friday 2 Oct."""
+    received = datetime(2026, 10, 2, 10, 47, tzinfo=UTC)
+    ist_end_of_day = datetime(2026, 10, 14, 18, 29, tzinfo=UTC)  # 23:59 IST
+    for text in (
+        "The assignment has to be submitted on or before Wednesday, [14/10/2026], 23:59 IST.",
+        "submitted on or before Wednesday, 14/10/2026, 23:59 IST.",
+        "submit by Wednesday 14 Oct 2026, 23:59",
+        "Last date: Wed (14/10/2026) 23:59",
+        "submit by [14/10/2026] 23:59",
+    ):
+        assert extract_deadline(text, received, received).deadline == ist_end_of_day, text
+    # a weekday with no date after it still means the next such day
+    assert extract_deadline("submit by Wednesday", received, received).deadline.day == 7
+    assert (
+        extract_deadline(
+            "last date: next Friday, 30 Oct 2026 5 pm", received, received
+        ).deadline.day
+        == 30
+    )

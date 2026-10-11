@@ -16,6 +16,7 @@ def close_task(session: Session, task: Task, status: str, now: datetime | None =
     """Mark a task done or dismissed and cancel its pending reminders. Does not commit; the caller
     syncs the Calendar event afterwards."""
     task.status = status
+    task.user_confirmed = True  # the user closed it: a rebuild or re-read never reopens it
     task.updated_at = now or datetime.now(UTC)
     cancel_pending_reminders(session, task.id)
     session.flush()

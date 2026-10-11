@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Rebuild from sources: removes only automatic tasks that no longer match, never the user's."""
 
 import json
@@ -396,3 +397,67 @@ def test_a_task_still_holding_a_tracking_wrapper_gets_the_real_link_on_rebuild(d
     rebuild(db_session, user)
     db_session.refresh(task)
     assert task.link == "https://app.digii.example/quiz/9"
+
+
+def _mail(message_id, subject, body, received_ms):
+    import base64
+
+    data = base64.urlsafe_b64encode(body.encode()).decode().rstrip("=")
+    return {
+        "id": message_id, "threadId": message_id, "labelIds": ["INBOX"], "internalDate": str(received_ms),
+        "payload": {
+            "mimeType": "text/plain",
+            "headers": [
+                {"name": "From", "value": "NPTEL <noreply@nptel.ac.in>"},
+                {"name": "Subject", "value": subject},
+                {"name": "Authentication-Results", "value": "mx; dmarc=pass"},
+            ],
+            "body": {"size": len(body), "data": data},
+        },
+    }  # fmt: skip
+
+
+WRONG = datetime(2026, 10, 7, 18, 29, tzinfo=UTC)  # what the old parser read: "next Wednesday"
+RIGHT = datetime(2026, 10, 14, 18, 29, tzinfo=UTC)
+SENT_MS = 1_790_000_000_000  # 2026-09-21 14:13 UTC, before NOW
+
+
+def test_a_rebuild_corrects_a_wrong_deadline_and_reopens_the_task_it_wrongly_completed(
+    db_session, user
+):
+    mail = _mail(
+        "wk12", "Assignment is live",
+        "The assignment has to be submitted on or before Wednesday, [14/10/2026], 23:59 IST.", SENT_MS,
+    )  # fmt: skip
+    stale = add(
+        db_session, user, "wk12", title="Assignment is live", deadline=WRONG, status="done",
+        source_received_at=datetime.fromtimestamp(SENT_MS / 1000, UTC),
+    )  # fmt: skip
+    rebuild(db_session, user, FakeGmailApi({"wk12": mail}))
+    db_session.refresh(stale)
+    assert stale.deadline == RIGHT
+    assert stale.status == "open"  # it was only completed because of the wrong date
+
+
+def test_a_rebuild_leaves_a_task_the_user_closed_or_edited_alone(db_session, user):
+    mail = _mail(
+        "wk12",
+        "Assignment is live",
+        "Submit on or before Wednesday, [14/10/2026], 23:59 IST.",
+        SENT_MS,
+    )
+    closed = add(db_session, user, "wk12", deadline=WRONG, status="done", user_confirmed=True)
+    rebuild(db_session, user, FakeGmailApi({"wk12": mail}))
+    db_session.refresh(closed)
+    assert (closed.deadline, closed.status) == (WRONG, "done")
+
+
+def test_an_older_email_does_not_undo_a_later_extension(db_session, user):
+    mail = _mail("orig", "Assignment 3", "Last date: 20 Oct 2026.", SENT_MS)
+    extended = add(
+        db_session, user, "orig", title="Assignment 3", deadline=datetime(2026, 10, 25, 18, 29, tzinfo=UTC),
+        source_received_at=datetime.fromtimestamp(SENT_MS / 1000, UTC) + timedelta(days=3),  # an extension came later
+    )  # fmt: skip
+    rebuild(db_session, user, FakeGmailApi({"orig": mail}))
+    db_session.refresh(extended)
+    assert extended.deadline == datetime(2026, 10, 25, 18, 29, tzinfo=UTC)

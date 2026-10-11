@@ -33,14 +33,20 @@ _MONTH = (
     r"aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
 )
 _WEEKDAY = r"(?:mon|tues?|wed(?:nes)?|thu(?:rs?)?|fri|sat(?:ur)?|sun)(?:day)?"
-DATE_RE = re.compile(
+_EXPLICIT_DATE = (
     r"\b\d{4}-\d{2}-\d{2}\b"
     r"|\b\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\b"
     rf"|\b\d{{1,2}}(?:st|nd|rd|th)?\s+(?:of\s+)?{_MONTH}\b\.?(?:,?\s+\d{{4}})?"
     rf"|\b{_MONTH}\b\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b(?:,?\s+\d{{4}})?"
-    rf"|\b(?:today|tonight|tomorrow)\b|\b(?:(?:next|this)\s+)?{_WEEKDAY}\b",
+)
+DATE_RE = re.compile(
+    rf"{_EXPLICIT_DATE}|\b(?:today|tonight|tomorrow)\b|\b(?:(?:next|this)\s+)?{_WEEKDAY}\b",
     re.IGNORECASE,
 )
+# "on or before Wednesday, [14/10/2026]": a weekday name followed by the actual date. The date is
+# the deadline; reading the weekday alone would mean "the next Wednesday", which can be a week off.
+_DATE_AFTER_WEEKDAY = re.compile(rf"[\s,.\[\(\-–—]*({_EXPLICIT_DATE})", re.IGNORECASE)
+_WEEKDAY_ONLY = re.compile(rf"(?:(?:next|this)\s+)?{_WEEKDAY}", re.IGNORECASE)
 _TIME_RES = (
     re.compile(r"\b(\d{1,2})[:.](\d{2})\s*(am|pm)\b", re.IGNORECASE),
     re.compile(r"\b(\d{1,2})\s*(am|pm)\b", re.IGNORECASE),
@@ -119,11 +125,16 @@ def extract_deadline(
         m = DATE_RE.search(snippet)  # only the date expression right after the cue
         if not m:
             continue
-        parsed = dateparser.parse(m.group(0), settings=settings)
+        date_text, date_end = m.group(0), m.end()
+        if _WEEKDAY_ONLY.fullmatch(date_text):
+            after = _DATE_AFTER_WEEKDAY.match(snippet, m.end())
+            if after:  # the weekday was only a label for the date that follows
+                date_text, date_end = after.group(1), after.end()
+        parsed = dateparser.parse(date_text, settings=settings)
         if parsed is None:
             continue
         parsed = parsed.astimezone(IST)
-        tod = _time_of_day(snippet, m.end())
+        tod = _time_of_day(snippet, date_end)
         if tod is not None:
             parsed = parsed.replace(hour=tod[0], minute=tod[1], second=0, microsecond=0)
         else:  # date-only (including "tomorrow"): end of that day, IST
