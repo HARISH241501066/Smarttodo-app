@@ -1,0 +1,38 @@
+{
+  "id": "tri13",
+  "threadId": "thr-tri13",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767272400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Holiday on Friday"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 84,
+      "data": "VGhlIGNvbGxlZ2Ugd2lsbCByZW1haW4gY2xvc2VkIG9uIEZyaWRheSBmb3IgdGhlIGxvY2FsIGZlc3RpdmFsLiBObyBhY3Rpb24gcmVxdWlyZWQu"
+    }
+  }
+}

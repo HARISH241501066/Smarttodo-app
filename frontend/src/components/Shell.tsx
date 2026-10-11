@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useApp } from "@/components/AppProvider";
-import { GearIcon, InboxIcon, ListIcon, ShieldIcon } from "@/components/icons";
+import { GearIcon, InboxIcon, ListIcon, NewsIcon, ShieldIcon } from "@/components/icons";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { InstallButton } from "@/components/InstallButton";
@@ -12,6 +12,7 @@ import { InstallButton } from "@/components/InstallButton";
 interface Tab {
   href: string;
   label: string;
+  short?: string; // shorter name for the phone's bottom bar
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
   count?: number;
 }
@@ -19,11 +20,12 @@ interface Tab {
 /** Header with the bell and theme toggle; navigation is a bottom bar on phones, inline from `sm`. */
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { me, reviewCount, suspiciousCount } = useApp();
+  const { me, reviewCount, suspiciousCount, updatesCount } = useApp();
 
   const tabs: Tab[] = [
     { href: "/", label: "Tasks", Icon: ListIcon },
-    { href: "/review", label: "Needs review", Icon: InboxIcon, count: reviewCount },
+    { href: "/updates", label: "Updates", Icon: NewsIcon, count: updatesCount },
+    { href: "/review", label: "Needs review", short: "Review", Icon: InboxIcon, count: reviewCount },
     { href: "/suspicious", label: "Suspicious", Icon: ShieldIcon, count: suspiciousCount },
     { href: "/settings", label: "Settings", Icon: GearIcon },
   ];
@@ -69,7 +71,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
       >
         {tabs.map((tab) => (
           <TabLink key={tab.href} tab={tab} active={isActive(tab.href)} stacked />
@@ -100,7 +102,7 @@ function TabLink({ tab, active, stacked }: { tab: Tab; active: boolean; stacked?
           </span>
         ) : null}
       </span>
-      <span className="truncate">{label}</span>
+      <span className="truncate">{stacked && tab.short ? tab.short : label}</span>
     </Link>
   );
 }

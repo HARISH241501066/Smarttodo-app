@@ -17,8 +17,32 @@ export interface Task {
   link_domain: string | null;
   link_confidence: number | null;
   confidence: number | null;
+  sender_email: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** An informational email (results, announcements): worth seeing, nothing to do. */
+export interface UpdateItem {
+  id: number;
+  title: string;
+  source: Source;
+  link: string | null;
+  link_type: "action" | "gmail" | null;
+  link_domain: string | null;
+  received_at: string | null;
+  created_at: string;
+}
+
+/** Counts from one batch of "Re-sort review queue". */
+export interface ReprocessCounts {
+  total: number;
+  task: number;
+  update: number;
+  ignore: number;
+  review: number;
+  gone: number;
+  next_after_id: number | null;
 }
 
 export interface NotificationItem {

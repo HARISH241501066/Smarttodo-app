@@ -5,6 +5,7 @@ from collections.abc import Iterable
 from urllib.parse import urlparse
 
 from app.filters.auth_check import sender_domain
+from app.filters.urls import unwrap_tracking_url
 from app.ingest.mime import ParsedMessage
 
 CATEGORIES = ("nptel", "gform", "internship", "college", "tracked", "unknown")
@@ -34,7 +35,7 @@ def categorize(
     domain = sender_domain(message.sender)
     if _domain_in(domain, ["nptel.ac.in"]) or _NPTEL_RE.search(message.subject):
         return "nptel"
-    if any(is_gform_url(link.url) for link in message.links):
+    if any(is_gform_url(unwrap_tracking_url(link.url)) for link in message.links):
         return "gform"
     if _INTERNSHIP_SUBJECT.search(message.subject) or _INTERNSHIP_ANY.search(
         f"{message.subject}\n{message.body_text}"

@@ -1,4 +1,4 @@
-import type { Priority, Task, TaskInput } from "@/lib/types";
+import type { Priority, ReprocessCounts, Task, TaskInput } from "@/lib/types";
 
 export const GROUPS: { key: Priority; label: string; dot: string }[] = [
   { key: "urgent", label: "Urgent", dot: "bg-danger" },
@@ -39,4 +39,39 @@ export function buildConfirm(task: Task, input: TaskInput): Record<string, unkno
   if (deadline) body.deadline = deadline; // the API cannot clear a deadline on confirm
   if (link) body.link = link;
   return body;
+}
+
+export interface SenderGroup {
+  sender: string | null; // null: older items that never recorded a sender
+  tasks: Task[];
+}
+
+/** Review items grouped by sender address, biggest group first. Items without a sender keep their
+ *  own group (last) because bulk actions need an address to act on. */
+export function groupBySender(tasks: Task[]): SenderGroup[] {
+  const groups = new Map<string, Task[]>();
+  const unknown: Task[] = [];
+  for (const task of tasks) {
+    if (!task.sender_email) {
+      unknown.push(task);
+      continue;
+    }
+    groups.set(task.sender_email, [...(groups.get(task.sender_email) ?? []), task]);
+  }
+  const named = [...groups.entries()]
+    .map(([sender, items]) => ({ sender, tasks: items }))
+    .sort((a, b) => b.tasks.length - a.tasks.length || a.sender.localeCompare(b.sender));
+  return unknown.length ? [...named, { sender: null, tasks: unknown }] : named;
+}
+
+/** One line for the toast after "Re-sort review queue". */
+export function sortSummary(c: Pick<ReprocessCounts, "task" | "update" | "ignore" | "review" | "gone">): string {
+  const moved = [
+    c.task ? `${c.task} to tasks` : null,
+    c.update ? `${c.update} to updates` : null,
+    c.ignore ? `${c.ignore} removed (codes, receipts, alerts)` : null,
+  ].filter(Boolean);
+  const left = c.review + c.gone;
+  const head = moved.length ? `Moved ${moved.join(", ")}.` : "Nothing needed moving.";
+  return `${head} ${left} still need a look.`;
 }

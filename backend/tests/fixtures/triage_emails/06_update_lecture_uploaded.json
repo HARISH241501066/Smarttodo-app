@@ -1,0 +1,38 @@
+{
+  "id": "tri06",
+  "threadId": "thr-tri06",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767247200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Week 9 lecture videos uploaded"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 68,
+      "data": "VGhlIGxlY3R1cmUgdmlkZW9zIGZvciBXZWVrIDkgaGF2ZSBiZWVuIHVwbG9hZGVkIHRvIHRoZSBjb3Vyc2UgcGFnZS4"
+    }
+  }
+}

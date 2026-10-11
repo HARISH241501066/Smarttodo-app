@@ -60,6 +60,7 @@ def test_sync_run_returns_counts_and_persists_cursor(logged_in, engine, user_id)
         "delivered": 3,
         "passed": 2,
         "quarantined": 1,  # fixture 1: display name "NPTEL" on a non-NPTEL domain
+        "ignored": 0,
         "already_processed": 0,
         "skipped": 2,
         "failed": 0,

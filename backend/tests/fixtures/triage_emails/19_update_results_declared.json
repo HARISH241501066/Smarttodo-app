@@ -1,0 +1,38 @@
+{
+  "id": "tri19",
+  "threadId": "thr-tri19",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767294000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Results declared for semester 4"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 63,
+      "data": "VGhlIHJlc3VsdHMgYXJlIG91dC4gWW91IGNhbiB2aWV3IHlvdXIgc2NvcmVjYXJkIG9uIHRoZSBwb3J0YWwu"
+    }
+  }
+}

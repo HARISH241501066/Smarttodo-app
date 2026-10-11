@@ -1,0 +1,116 @@
+{
+  "01_task_assignment_is_live": {
+    "kind": "task",
+    "deadline": null,
+    "link": "https://onlinecourses.nptel.ac.in/noc26_cs10/assignment/9",
+    "id": "tri01"
+  },
+  "02_update_quiz_summary_score": {
+    "kind": "update",
+    "deadline": null,
+    "link": null,
+    "id": "tri02"
+  },
+  "03_ignore_secure_signin_link": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "tri03"
+  },
+  "04_ignore_otp": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "tri04"
+  },
+  "05_ignore_payment_receipt": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "tri05"
+  },
+  "06_update_lecture_uploaded": {
+    "kind": "update",
+    "deadline": null,
+    "link": null,
+    "id": "tri06"
+  },
+  "07_review_two_conflicting_deadlines": {
+    "kind": "review",
+    "deadline": null,
+    "link": null,
+    "id": "tri07"
+  },
+  "08_task_digii_new_quiz_table": {
+    "kind": "task",
+    "deadline": "2026-10-18T18:29:00+00:00",
+    "link": "https://app.digii.example/student/quiz/start?quizId=9",
+    "id": "tri08"
+  },
+  "09_ignore_security_alert": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "tri09"
+  },
+  "10_ignore_order_shipped": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "tri10"
+  },
+  "11_ignore_password_reset": {
+    "kind": "ignore",
+    "deadline": null,
+    "link": null,
+    "id": "tri11"
+  },
+  "12_update_certificate_issued": {
+    "kind": "update",
+    "deadline": null,
+    "link": null,
+    "id": "tri12"
+  },
+  "13_update_announcement_no_action": {
+    "kind": "update",
+    "deadline": null,
+    "link": null,
+    "id": "tri13"
+  },
+  "14_update_no_cues_at_all": {
+    "kind": "update",
+    "deadline": null,
+    "link": null,
+    "id": "tri14"
+  },
+  "15_task_fill_the_form": {
+    "kind": "task",
+    "deadline": "2026-01-25T18:29:00+00:00",
+    "link": "https://forms.gle/Feedback26",
+    "id": "tri15"
+  },
+  "16_task_registration_closes_on": {
+    "kind": "task",
+    "deadline": "2026-01-30T18:29:00+00:00",
+    "link": "https://examform.nptel.ac.in/registration/apply",
+    "id": "tri16"
+  },
+  "17_task_quiz_is_open_no_date": {
+    "kind": "task",
+    "deadline": null,
+    "link": "https://onlinecourses.nptel.ac.in/noc26_cs10/quiz/3",
+    "id": "tri17"
+  },
+  "18_review_score_and_assignment_cues_conflict": {
+    "kind": "review",
+    "deadline": null,
+    "link": null,
+    "id": "tri18"
+  },
+  "19_update_results_declared": {
+    "kind": "update",
+    "deadline": null,
+    "link": null,
+    "id": "tri19"
+  }
+}

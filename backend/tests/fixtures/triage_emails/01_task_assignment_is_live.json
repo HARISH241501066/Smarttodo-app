@@ -1,0 +1,38 @@
+{
+  "id": "tri01",
+  "threadId": "thr-tri01",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767229200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Week 9 content & Assignment is live"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 157,
+      "data": "RGVhciBsZWFybmVyLCB0aGUgV2VlayA5IGNvbnRlbnQgYW5kIHRoZSBBc3NpZ25tZW50IGFyZSBub3cgbGl2ZSBvbiB0aGUgY291cnNlIHBhZ2UuCk9wZW4gaHR0cHM6Ly9vbmxpbmVjb3Vyc2VzLm5wdGVsLmFjLmluL25vYzI2X2NzMTAvYXNzaWdubWVudC85IHRvIGJlZ2luLg"
+    }
+  }
+}

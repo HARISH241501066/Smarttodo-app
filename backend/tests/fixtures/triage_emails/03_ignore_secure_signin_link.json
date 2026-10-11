@@ -1,0 +1,38 @@
+{
+  "id": "tri03",
+  "threadId": "thr-tri03",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767236400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your secure sign-in link"
+      },
+      {
+        "name": "From",
+        "value": "Accounts <no-reply@accounts.example.test>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 99,
+      "data": "VXNlIHRoZSBsaW5rIGJlbG93IHRvIHNpZ24gaW4uIEl0IGV4cGlyZXMgaW4gMTUgbWludXRlcy4KaHR0cHM6Ly9hY2NvdW50cy5leGFtcGxlLnRlc3QvbWFnaWMvYWJjMTIz"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "tri17",
+  "threadId": "thr-tri17",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767286800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Quiz is open"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 96,
+      "data": "VGhlIFdlZWsgMyBxdWl6IGlzIG9wZW4uIEF0dGVtcHQgdGhlIHF1aXogYXQgaHR0cHM6Ly9vbmxpbmVjb3Vyc2VzLm5wdGVsLmFjLmluL25vYzI2X2NzMTAvcXVpei8z"
+    }
+  }
+}

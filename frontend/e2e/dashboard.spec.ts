@@ -41,7 +41,7 @@ async function api<T>(page: Page, path: string): Promise<T> {
 type ApiTask = { id: number; title: string; status: string; priority: string; link: string | null; deadline: string | null };
 
 /** A tab's badge. The bar is rendered twice (header and bottom bar); only one is visible. */
-const badge = (page: Page, key: "review" | "suspicious") => page.locator(`[data-testid="count-${key}"]:visible`);
+const badge = (page: Page, key: "review" | "suspicious" | "updates") => page.locator(`[data-testid="count-${key}"]:visible`);
 
 async function waitForTasks(page: Page) {
   await expect(page.getByRole("heading", { name: "Your tasks" })).toBeVisible();
@@ -282,15 +282,16 @@ test("a notification for a task that is already done opens that task", async ({ 
 test("needs review: confirm, edit and confirm, and dismiss", async ({ app }) => {
   await app.goto("/review");
   await expect(app.getByRole("heading", { name: "Needs review" })).toBeVisible();
-  await expect(badge(app, "review")).toHaveText("3");
   const cards = app.getByTestId("review-card");
-  await expect(cards).toHaveCount(3);
-  await expect(cards.first()).toContainText("none found");
+  const start = (await api<ApiTask[]>(app, "/review")).length;
+  await expect(badge(app, "review")).toHaveText(String(start));
+  await expect(cards).toHaveCount(start);
+  await expect(cards.filter({ hasText: "Workshop invite" })).toContainText("none found");
 
   // confirm as-is: it leaves the list and shows up among the tasks
   await cards.filter({ hasText: "Workshop invite" }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(cards.filter({ hasText: "Workshop invite" })).toHaveCount(0);
-  await expect(badge(app, "review")).toHaveText("2");
+  await expect(badge(app, "review")).toHaveText(String(start - 1));
 
   // edit then confirm
   await cards.filter({ hasText: "Seminar notice" }).getByRole("button", { name: /Edit & confirm/ }).click();
@@ -303,9 +304,9 @@ test("needs review: confirm, edit and confirm, and dismiss", async ({ app }) => 
 
   // dismiss
   await cards.filter({ hasText: "Newsletter digest" }).getByRole("button", { name: "Dismiss" }).click();
-  await expect(cards).toHaveCount(0);
-  await expect(app.getByText("Nothing to review")).toBeVisible();
-  await expect(badge(app, "review")).toHaveCount(0);
+  await expect(cards.filter({ hasText: "Newsletter digest" })).toHaveCount(0);
+  await expect(cards).toHaveCount(start - 3);
+  await expect(badge(app, "review")).toHaveText(String(start - 3));
 
   await app.getByRole("link", { name: "Tasks" }).first().click();
   await waitForTasks(app);
@@ -315,7 +316,110 @@ test("needs review: confirm, edit and confirm, and dismiss", async ({ app }) => 
   await expect(card(app, "Newsletter digest")).toHaveCount(0);
   const tasks = await api<ApiTask[]>(app, "/tasks?limit=500");
   expect(tasks.find((t) => t.title === "Workshop invite (confirm me)")?.status).toBe("open");
-  expect((await api<ApiTask[]>(app, "/review")).length).toBe(0);
+  expect((await api<ApiTask[]>(app, "/review")).length).toBe(start - 3);
+});
+
+test("updates: shown with source, date and link; turn one into a task, dismiss another", async ({ app }) => {
+  await app.goto("/updates");
+  await expect(app.getByRole("heading", { name: "Updates" })).toBeVisible();
+  const items = app.getByTestId("update-card");
+  await expect(items).toHaveCount(3);
+  await expect(badge(app, "updates")).toHaveText("3");
+
+  const quiz = items.filter({ hasText: "Week 8 quiz summary and score" });
+  await expect(quiz.getByText("NPTEL", { exact: true })).toBeVisible();
+  await expect(quiz).toContainText("onlinecourses.nptel.ac.in");
+  await expect(quiz).toContainText("30m ago");
+  await expect(quiz.getByRole("link", { name: "Open link" })).toHaveAttribute(
+    "href",
+    "https://onlinecourses.nptel.ac.in/noc26_cs10/summary/8",
+  );
+  await expect(items.filter({ hasText: "certificate" }).getByRole("link", { name: "Open email" })).toBeVisible();
+  await expect(items.filter({ hasText: "Library timings" }).getByRole("link")).toHaveCount(0);
+
+  await quiz.getByRole("button", { name: "Turn into task" }).click();
+  await expect(app.getByRole("status").filter({ hasText: "Added to your tasks" })).toBeVisible();
+  await expect(items).toHaveCount(2);
+  await expect(badge(app, "updates")).toHaveText("2");
+
+  await items.filter({ hasText: "Library timings" }).getByRole("button", { name: "Dismiss" }).click();
+  await expect(items).toHaveCount(1);
+  await expect(badge(app, "updates")).toHaveText("1");
+
+  await app.getByRole("link", { name: "Tasks" }).first().click();
+  await waitForTasks(app);
+  const task = card(app, "Week 8 quiz summary and score");
+  await expect(task).toBeVisible();
+  await expect(task.getByTestId("no-deadline")).toBeVisible();
+  await expect(card(app, "Library timings")).toHaveCount(0);
+  const open = await api<ApiTask[]>(app, "/tasks?status=open&limit=500");
+  expect(open.find((t) => t.title === "Week 8 quiz summary and score")).toMatchObject({ deadline: null, priority: "important" });
+  expect((await api<unknown[]>(app, "/updates")).length).toBe(1);
+});
+
+test("needs review: confirm all and dismiss all from one sender", async ({ app }) => {
+  await app.goto("/review");
+  const groupA = app.getByRole("region", { name: "bulk-a@news.example.test" });
+  const groupB = app.getByRole("region", { name: "bulk-b@promo.example.test" });
+  await expect(groupA.getByTestId("review-card")).toHaveCount(3);
+  await expect(groupB.getByTestId("review-card")).toHaveCount(2);
+  const before = (await api<ApiTask[]>(app, "/review")).length;
+
+  await groupA.getByRole("button", { name: "Confirm all from this sender" }).click();
+  await expect(app.getByRole("status").filter({ hasText: "Confirmed 3 from bulk-a@news.example.test" })).toBeVisible();
+  await expect(groupA).toHaveCount(0);
+  await expect(badge(app, "review")).toHaveText(String(before - 3));
+
+  // dismissing a whole sender asks first
+  await groupB.getByRole("button", { name: "Dismiss all from this sender" }).click();
+  const dialog = app.getByRole("dialog", { name: "Dismiss 2 emails?" });
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(groupB.getByTestId("review-card")).toHaveCount(2);
+  await groupB.getByRole("button", { name: "Dismiss all from this sender" }).click();
+  await app.getByRole("dialog", { name: "Dismiss 2 emails?" }).getByRole("button", { name: "Dismiss 2" }).click();
+  await expect(groupB).toHaveCount(0);
+  await expect(badge(app, "review")).toHaveText(String(before - 5));
+
+  const open = await api<ApiTask[]>(app, "/tasks?status=open&limit=500");
+  expect(open.filter((t) => t.title.endsWith("(bulk confirm)")).length).toBe(3);
+  const dismissed = await api<ApiTask[]>(app, "/tasks?status=dismissed&limit=500");
+  expect(dismissed.filter((t) => t.title.endsWith("(bulk dismiss)")).length).toBe(2);
+  expect((await api<ApiTask[]>(app, "/review")).length).toBe(before - 5);
+
+  await app.getByRole("link", { name: "Tasks" }).first().click();
+  await waitForTasks(app);
+  await expect(card(app, "Course notice 1 (bulk confirm)")).toBeVisible();
+  await expect(card(app, "Promo 1")).toHaveCount(0);
+});
+
+test("re-sort review queue moves emails to tasks, updates or nowhere, reports counts, and is repeatable", async ({ app }) => {
+  await app.goto("/review");
+  await expect(app.getByTestId("review-card")).toHaveCount(5); // only the re-sortable items are left
+  await app.getByRole("button", { name: "Re-sort review queue" }).click();
+
+  const summary = app.getByRole("status").filter({ hasText: "Moved" });
+  await expect(summary).toContainText(
+    "Moved 1 to tasks, 1 to updates, 1 removed (codes, receipts, alerts). 2 still need a look.",
+  );
+  await expect(app.getByTestId("review-card")).toHaveCount(2);
+  await expect(badge(app, "review")).toHaveText("2");
+  await expect(app.getByTestId("review-card").filter({ hasText: "score and assignment cues" })).toBeVisible();
+  await expect(app.getByTestId("review-card").filter({ hasText: "deleted from Gmail" })).toBeVisible();
+
+  const open = await api<ApiTask[]>(app, "/tasks?status=open&limit=500");
+  expect(open.find((t) => t.title === "Re-sort: assignment is live")).toMatchObject({ deadline: null });
+  expect((await api<ApiTask[]>(app, "/tasks?limit=500")).some((t) => t.title.includes("login code"))).toBe(false);
+  expect((await api<{ title: string }[]>(app, "/updates")).map((u) => u.title)).toContain("Re-sort: quiz summary");
+
+  // sorting again changes nothing
+  await app.getByRole("button", { name: "Re-sort review queue" }).click();
+  await expect(app.getByRole("status").filter({ hasText: "Nothing needed moving. 2 still need a look." })).toBeVisible();
+  await expect(app.getByTestId("review-card")).toHaveCount(2);
+  expect((await api<ApiTask[]>(app, "/review")).length).toBe(2);
+
+  await app.getByRole("link", { name: "Tasks" }).first().click();
+  await waitForTasks(app);
+  await expect(card(app, "Re-sort: assignment is live").getByTestId("no-deadline")).toBeVisible();
 });
 
 // ------------------------------------------------------------------ suspicious
@@ -544,7 +648,7 @@ test("at 380px wide every page is usable: nothing overflows and the controls are
   const page = await context.newPage();
   fs.mkdirSync("e2e/screenshots", { recursive: true });
 
-  for (const [path, name] of [["/", "tasks"], ["/review", "review"], ["/suspicious", "suspicious"], ["/settings", "settings"]]) {
+  for (const [path, name] of [["/", "tasks"], ["/updates", "updates"], ["/review", "review"], ["/suspicious", "suspicious"], ["/settings", "settings"]]) {
     await page.goto(path);
     await expect(page.getByRole("status", { name: /Loading/ })).toHaveCount(0);
     await page.waitForTimeout(300);
@@ -557,7 +661,7 @@ test("at 380px wide every page is usable: nothing overflows and the controls are
   await waitForTasks(page);
   const nav = page.getByRole("navigation", { name: "Main" }).last();
   await expect(nav).toBeVisible();
-  for (const label of ["Tasks", "Needs review", "Suspicious", "Settings"]) {
+  for (const label of ["Tasks", "Updates", "Review", "Suspicious", "Settings"]) {
     await expect(nav.getByRole("link", { name: label })).toBeVisible();
   }
   // the primary action is a full-width, thumb-sized button

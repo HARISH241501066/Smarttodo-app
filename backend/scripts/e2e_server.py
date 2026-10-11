@@ -1,3 +1,4 @@
+# ruff: noqa: E501, I001  (long literals; imports follow the sys.path set-up on purpose)
 """A throwaway backend for the dashboard's browser tests. It never touches real data:
 
 * creates a temporary Postgres database and migrates it,
@@ -36,9 +37,7 @@ from app.config import get_settings  # noqa: E402
 
 PORT = int(os.environ.get("E2E_BACKEND_PORT", "8001"))
 FRONTEND_PORT = int(os.environ.get("E2E_FRONTEND_PORT", "3100"))
-STATE_FILE = Path(
-    os.environ.get("E2E_STATE", BACKEND.parent / "frontend" / "e2e" / ".state.json")
-)
+STATE_FILE = Path(os.environ.get("E2E_STATE", BACKEND.parent / "frontend" / "e2e" / ".state.json"))
 DB_PREFIX = "smart_todo_e2e_"
 
 
@@ -64,9 +63,14 @@ def main() -> None:
     base = make_url(get_settings().database_url)  # the real settings, only to reach Postgres
     admin = create_engine(base, isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
-        stale = conn.execute(
-            text("SELECT datname FROM pg_database WHERE datname LIKE :p"), {"p": DB_PREFIX + "%"}
-        ).scalars().all()
+        stale = (
+            conn.execute(
+                text("SELECT datname FROM pg_database WHERE datname LIKE :p"),
+                {"p": DB_PREFIX + "%"},
+            )
+            .scalars()
+            .all()
+        )
     for name in stale:  # left behind by a run that was killed
         admin_exec(admin, f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
 
@@ -123,7 +127,7 @@ def main() -> None:
 
 
 def seed(url: str) -> dict:
-    from app.models import Notification, Quarantine, Task, User, UserSettings
+    from app.models import EmailUpdate, Notification, Quarantine, Task, User, UserSettings
     from app.security import sign
 
     now = datetime.now(UTC)
@@ -162,15 +166,55 @@ def seed(url: str) -> dict:
         task("done", "Mark me done", source="manual", priority="regular", confidence=1.0,
              link="https://example.com/done-me", link_type="action", link_confidence=1.0)  # fmt: skip
 
-        def review(key, title, **kw) -> None:
+        def review(key, title, sender=None, ref=None, **kw) -> None:
+            ref = ref or key
             t = task(key, title, source="other", priority="regular", confidence=0.3,
-                     link="https://mail.google.com/mail/u/0/#all/" + key, link_type="gmail",
-                     link_confidence=0.0, source_ref=key, **kw)  # fmt: skip
+                     link="https://mail.google.com/mail/u/0/#all/" + ref, link_type="gmail",
+                     link_confidence=0.0, source_ref=ref, sender_email=sender, **kw)  # fmt: skip
             t.status = "needs_review"
 
-        review("review_confirm", "Workshop invite (confirm me)")
-        review("review_edit", "Seminar notice (edit me)")
-        review("review_dismiss", "Newsletter digest (dismiss me)")
+        review("review_confirm", "Workshop invite (confirm me)", "events@college.example.edu")
+        review("review_edit", "Seminar notice (edit me)", "events@college.example.edu")
+        review("review_dismiss", "Newsletter digest (dismiss me)", "events@college.example.edu")
+        # a sender with several items: "Confirm all from this sender"
+        for i in range(1, 4):
+            review(
+                f"bulk_confirm_{i}", f"Course notice {i} (bulk confirm)", "bulk-a@news.example.test"
+            )
+        # another one: "Dismiss all from this sender"
+        for i in range(1, 3):
+            review(f"bulk_dismiss_{i}", f"Promo {i} (bulk dismiss)", "bulk-b@promo.example.test")
+        # items the re-sort button can really re-read (the fake Gmail below has these messages)
+        review("resort_task", "Re-sort: assignment is live", None, ref="tri01")
+        review("resort_update", "Re-sort: quiz summary", None, ref="tri02")
+        review("resort_ignore", "Re-sort: your login code", None, ref="tri04")
+        review("resort_stays", "Re-sort: score and assignment cues", None, ref="tri18")
+        review("resort_gone", "Re-sort: deleted from Gmail", None, ref="deleted-from-gmail")
+
+        for key, title, source, minutes, link, link_type in (
+            (
+                "update_quiz",
+                "Week 8 quiz summary and score",
+                "nptel",
+                30,
+                "https://onlinecourses.nptel.ac.in/noc26_cs10/summary/8",
+                "action",
+            ),
+            (
+                "update_cert",
+                "Your NPTEL certificate has been issued",
+                "nptel",
+                300,
+                "https://mail.google.com/mail/u/0/#all/seedcert",
+                "gmail",
+            ),
+            ("update_notice", "Library timings during exams", "college", 1500, None, None),
+        ):
+            u = EmailUpdate(user_id=user.id, message_id=f"seed-{key}", title=title, source=source,
+                            link=link, link_type=link_type, received_at=now - timedelta(minutes=minutes))  # fmt: skip
+            s.add(u)
+            s.flush()
+            ids[key] = u.id
 
         reasons = ["Asks for a registration, processing or similar fee",
                    "Display name claims to be nptel but the sender domain differs"]  # fmt: skip
@@ -185,8 +229,22 @@ def seed(url: str) -> dict:
             ids[key] = q.id
 
         for key, title, body, task_key, minutes, read in (
-            ("n1", "Complete immediately: Submit NPTEL Assignment 5", "Due soon", "nptel", 5, False),
-            ("n2", "New task: Fill the hackathon registration form", "Due in 5 days", "form", 10, False),
+            (
+                "n1",
+                "Complete immediately: Submit NPTEL Assignment 5",
+                "Due soon",
+                "nptel",
+                5,
+                False,
+            ),
+            (
+                "n2",
+                "New task: Fill the hackathon registration form",
+                "Due in 5 days",
+                "form",
+                10,
+                False,
+            ),
             ("n3", "Daily digest: 2 task(s) due in the next 72 hours", "- a\n- b", None, 20, False),
             ("n4", "Old reminder", "Already seen", "circular", 600, True),
         ):
@@ -230,13 +288,21 @@ def serve(state: dict) -> None:
     from app.api.push import get_push_sender
     from app.api.sync import get_gmail_api
     from app.main import app
-    from tests.gmail_fakes import FakeGmailApi, load_fixture
+    from tests.gmail_fakes import FIXTURE_DIR as EMAIL_FIXTURES, FakeGmailApi, load_fixture
+
+    FIXTURE_DIR = EMAIL_FIXTURES.parent
 
     raw = load_fixture("../task_emails/01_nptel_quiz_with_noise_links")
     raw["payload"]["headers"].append(
         {"name": "Authentication-Results", "value": "mx.google.com; dmarc=pass"}
     )
-    fake_gmail = FakeGmailApi({raw["id"]: raw})
+    messages = {raw["id"]: raw}
+    manifest = json.loads((FIXTURE_DIR / "triage_emails" / "expected.manifest").read_text())
+    for name, meta in manifest.items():  # emails the review re-sort can read again
+        messages[meta["id"]] = json.loads(
+            (FIXTURE_DIR / "triage_emails" / f"{name}.json").read_text()
+        )
+    fake_gmail = FakeGmailApi(messages)
     sender = RecordingSender()
     app.dependency_overrides[get_gmail_api] = lambda: fake_gmail
     app.dependency_overrides[get_push_sender] = lambda: sender

@@ -4,10 +4,14 @@ For every parsed message: skip it if already handled, otherwise score it, then e
 quarantine it or hand it (in memory only) to the next stage. The decision is recorded in
 processed_messages, which holds ids and short reasons, never message content.
 Only message ids and decisions are logged.
+
+The next stage may answer with a StageOutcome to say the message was not a keeper after all
+(decision "ignored") or to add a short note to the record; returning nothing means "passed".
 """
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -21,14 +25,23 @@ from app.models import ProcessedMessage, Quarantine, User, UserSettings
 
 logger = logging.getLogger(__name__)
 
-NextStage = Callable[[User, ParsedMessage], None]
+
+@dataclass(frozen=True)
+class StageOutcome:
+    decision: str = "passed"  # "passed" | "ignored"
+    note: str | None = None  # e.g. "task: assignment is live/due"; stored in processed_messages
+
+
+NextStage = Callable[[User, ParsedMessage], StageOutcome | None]
 
 
 def discard_next_stage(user: User, message: ParsedMessage) -> None:
     """Placeholder until Module 5 (task extraction). Must be idempotent on message id."""
 
 
-def _record(session: Session, user_id: int, message_id: str, decision: str, reason: str) -> None:
+def record_decision(
+    session: Session, user_id: int, message_id: str, decision: str, reason: str
+) -> None:
     stmt = insert(ProcessedMessage).values(
         user_id=user_id, message_id=message_id, decision=decision, reason=reason[:255]
     )
@@ -75,20 +88,24 @@ def make_filter_sink(
                         .on_conflict_do_nothing(index_elements=["user_id", "message_id"])
                     )
                     decision = "quarantined"
+                    stage_note = None
                 else:
-                    next_stage(user, message)
-                    decision = "passed"
+                    outcome = next_stage(user, message)
+                    decision = outcome.decision if outcome else "passed"
+                    stage_note = outcome.note if outcome else None
                 note = f"score={verdict.score}"
                 if verdict.trusted_tracked:
                     note = "tracked sender"
                 elif verdict.tracked:
                     note += "; tracked sender failed authentication"
-                _record(session, user.id, message.message_id, decision, note)
+                if stage_note:
+                    note = f"{stage_note}; {note}"
+                record_decision(session, user.id, message.message_id, decision, note)
         except Exception as exc:
             logger.warning(
                 "message %s failed in filter stage: %s", message.message_id, type(exc).__name__
             )
-            _record(session, user.id, message.message_id, "failed", type(exc).__name__)
+            record_decision(session, user.id, message.message_id, "failed", type(exc).__name__)
             record_failure(session, user.id, message.message_id, exc)
             return "failed"
 

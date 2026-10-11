@@ -1,0 +1,38 @@
+{
+  "id": "tri05",
+  "threadId": "thr-tri05",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767243600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Payment receipt - exam registration fee"
+      },
+      {
+        "name": "From",
+        "value": "Payments <payments@pay.example.test>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 71,
+      "data": "VGhhbmsgeW91IGZvciB5b3VyIHBheW1lbnQgb2YgUnMuIDEwMDAuIFlvdXIgcmVjZWlwdCBudW1iZXIgaXMgUi0yMDkzMS4"
+    }
+  }
+}

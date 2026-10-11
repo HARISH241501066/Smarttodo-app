@@ -1,0 +1,38 @@
+{
+  "id": "tri12",
+  "threadId": "thr-tri12",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767268800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your certificate is ready"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 79,
+      "data": "Q29uZ3JhdHVsYXRpb25zISBZb3VyIGNlcnRpZmljYXRlIGhhcyBiZWVuIGlzc3VlZCBhbmQgaXMgYXZhaWxhYmxlIHRvIGRvd25sb2FkLg"
+    }
+  }
+}

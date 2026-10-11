@@ -1,0 +1,38 @@
+{
+  "id": "tri09",
+  "threadId": "thr-tri09",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767258000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Security alert: new sign-in on Windows"
+      },
+      {
+        "name": "From",
+        "value": "Accounts <no-reply@accounts.example.test>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 81,
+      "data": "QSBuZXcgc2lnbi1pbiB0byB5b3VyIGFjY291bnQgd2FzIGRldGVjdGVkLiBJZiB0aGlzIHdhcyB5b3UsIG5vIGFjdGlvbiBpcyBuZWVkZWQu"
+    }
+  }
+}

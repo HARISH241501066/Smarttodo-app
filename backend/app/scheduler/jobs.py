@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth.credentials import ReauthRequired, load_credentials
 from app.db import get_engine
 from app.filters.pipeline import make_filter_sink
-from app.filters.task_stage import make_task_stage
+from app.filters.task_stage import make_triage_stage
 from app.ingest.gmail import GmailApi, GoogleGmailApi, RateLimited
 from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
@@ -57,7 +57,7 @@ def poll_sync(
             try:
                 gmail = gmail_factory(user, session)
                 result = run_sync(
-                    user, session, gmail, make_filter_sink(session, make_task_stage(session, now))
+                    user, session, gmail, make_filter_sink(session, make_triage_stage(session, now))
                 )
                 outcomes[user_id] = f"ok delivered={result.delivered} failed={result.failed}"
             except SyncInProgress:

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDetail } from "@/lib/api";
-import { buildConfirm, buildCreate, buildPatch } from "@/lib/tasks";
+import { buildConfirm, buildCreate, buildPatch, groupBySender, sortSummary } from "@/lib/tasks";
 import {
   domainOf,
   formatCountdown,
@@ -93,6 +93,7 @@ const task = (over: Partial<Task> = {}): Task => ({
   link_domain: "example.com",
   link_confidence: 0.8,
   confidence: 0.9,
+  sender_email: null,
   created_at: "2030-01-01T00:00:00Z",
   updated_at: "2030-01-01T00:00:00Z",
   ...over,
@@ -135,5 +136,43 @@ describe("task request bodies", () => {
     expect(buildConfirm(task({ deadline: null }), input({ deadline: "2030-02-01T10:00:00+05:30" }))).toEqual({
       deadline: "2030-02-01T10:00:00+05:30",
     });
+  });
+});
+
+describe("review grouping and the re-sort summary", () => {
+  const item = (id: number, sender: string | null): Task => task({ id, title: `t${id}`, sender_email: sender });
+
+  it("groups by sender address, biggest first, with unknown senders last", () => {
+    const groups = groupBySender([
+      item(1, "b@x.com"),
+      item(2, "a@x.com"),
+      item(3, null),
+      item(4, "b@x.com"),
+      item(5, "b@x.com"),
+      item(6, "c@x.com"),
+      item(7, "a@x.com"),
+    ]);
+    expect(groups.map((g) => [g.sender, g.tasks.map((t) => t.id)])).toEqual([
+      ["b@x.com", [1, 4, 5]],
+      ["a@x.com", [2, 7]],
+      ["c@x.com", [6]],
+      [null, [3]],
+    ]);
+  });
+
+  it("handles nothing", () => {
+    expect(groupBySender([])).toEqual([]);
+  });
+
+  it("summarises what moved", () => {
+    expect(sortSummary({ task: 71, update: 12, ignore: 9, review: 5, gone: 2 })).toBe(
+      "Moved 71 to tasks, 12 to updates, 9 removed (codes, receipts, alerts). 7 still need a look.",
+    );
+    expect(sortSummary({ task: 0, update: 0, ignore: 0, review: 3, gone: 0 })).toBe(
+      "Nothing needed moving. 3 still need a look.",
+    );
+    expect(sortSummary({ task: 1, update: 0, ignore: 0, review: 0, gone: 0 })).toBe(
+      "Moved 1 to tasks. 0 still need a look.",
+    );
   });
 });

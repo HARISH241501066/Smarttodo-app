@@ -1,0 +1,38 @@
+{
+  "id": "tri15",
+  "threadId": "thr-tri15",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767279600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Please fill the feedback form"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 69,
+      "data": "UGxlYXNlIGZpbGwgdGhlIGZvcm0gaHR0cHM6Ly9mb3Jtcy5nbGUvRmVlZGJhY2syNiBiZWZvcmUgMjUgSmFuIDIwMjYu"
+    }
+  }
+}

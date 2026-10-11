@@ -35,7 +35,7 @@ QUARANTINE_STATUSES = ("held", "rescued", "confirmed_scam")
 LINK_TYPES = ("action", "gmail")
 REMINDER_KINDS = ("created", "t48", "t24", "t10", "t1", "immediate")
 NOTIFICATION_KINDS = ("reminder", "digest")
-PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed")
+PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed", "ignored")
 
 
 def _in(column: str, values: tuple[str, ...]) -> str:
@@ -85,6 +85,7 @@ class Task(Base):
     link_type: Mapped[str | None] = mapped_column(String(16))
     link_confidence: Mapped[float | None] = mapped_column(Float)
     source_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sender_email: Mapped[str | None] = mapped_column(String(320))  # address only, no body
     priority: Mapped[str] = mapped_column(String(16), server_default="regular", nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), server_default="open", nullable=False)
@@ -172,6 +173,30 @@ class ProcessedMessage(Base):
     decision: Mapped[str] = mapped_column(String(16), nullable=False)
     reason: Mapped[str | None] = mapped_column(String(255))
     processed_at: Mapped[datetime] = _ts()
+
+
+class EmailUpdate(Base):
+    """An informational email (results, "lecture uploaded", announcements): worth seeing, but not
+    a to-do. Holds no body, only what is needed to show it and to turn it into a task."""
+
+    __tablename__ = "updates"
+    __table_args__ = (
+        UniqueConstraint("user_id", "message_id", name="uq_updates_user_id_message_id"),
+        CheckConstraint(_in("source", TASK_SOURCES), name="source"),
+        CheckConstraint(_in("link_type", LINK_TYPES), name="link_type"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    message_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str] = mapped_column(String(16), server_default="other", nullable=False)
+    link: Mapped[str | None] = mapped_column(Text)
+    link_type: Mapped[str | None] = mapped_column(String(16))
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _ts()
 
 
 class PushSubscription(Base):

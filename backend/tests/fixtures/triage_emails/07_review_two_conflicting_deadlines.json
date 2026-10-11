@@ -1,0 +1,38 @@
+{
+  "id": "tri07",
+  "threadId": "thr-tri07",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767250800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Assignment 4 reminder"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 84,
+      "data": "TGFzdCBkYXRlIHRvIHN1Ym1pdDogMTIgSmFuIDIwMjYuCkxhdGUgcmVnaXN0cmF0aW9uIGVuZHMgb24gMjggRmViIDIwMjYgd2l0aCBhIGZpbmUu"
+    }
+  }
+}

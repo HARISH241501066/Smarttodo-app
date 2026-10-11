@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 
 from app.filters.auth_check import sender_domain
 from app.filters.categorize import is_gform_url
+from app.filters.urls import unwrap_tracking_url
 from app.ingest.mime import Link, ParsedMessage
 
 ACTION_THRESHOLD = 3
@@ -96,7 +97,9 @@ def pick_action_link(message: ParsedMessage) -> LinkChoice:
     sender = sender_domain(message.sender)
     sender_base = base_domain(sender) if sender else ""
     best: tuple[int, Link] | None = None
-    for link in message.links:
+    for wrapped in message.links:
+        # Tracking wrappers hide the real page; score (and store) the destination instead.
+        link = Link(unwrap_tracking_url(wrapped.url), wrapped.text)
         if is_droppable(link):
             continue
         score = score_link(link, sender_base)

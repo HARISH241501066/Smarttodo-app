@@ -16,6 +16,7 @@ from app.api import (
     settings,
     sync,
     tasks,
+    triage,
 )
 from app.auth.credentials import ReauthRequired
 from app.config import get_settings
@@ -53,6 +54,7 @@ app.include_router(sync.router)
 app.include_router(tasks.router)
 app.include_router(quarantine.router)
 app.include_router(settings.router)
+app.include_router(triage.router)
 app.include_router(notifications.router)
 app.include_router(push.router)
 app.include_router(actions.router)

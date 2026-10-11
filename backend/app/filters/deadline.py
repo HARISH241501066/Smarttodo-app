@@ -46,6 +46,10 @@ _TIME_RES = (
     re.compile(r"\b(\d{1,2})\s*(am|pm)\b", re.IGNORECASE),
     re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b"),
 )
+# "18 Oct 2026 | 11:59 PM": tables and templates separate the date from the time with a pipe.
+_PIPE_BEFORE_TIME = re.compile(
+    r"(?<=[0-9A-Za-z])\s*\|\s*(?=\d{1,2}\s*[:.]\d{2}|\d{1,2}\s*[ap]\.?m\b)", re.IGNORECASE
+)
 _LEADING_JUNK = re.compile(
     r"^[\s:,\-–—]*(?:(?:is|was|will\s+be|on|by|to|till|until)\b)?[\s:,\-–—]*", re.I
 )
@@ -53,9 +57,10 @@ _LEADING_JUNK = re.compile(
 
 @dataclass(frozen=True)
 class DeadlineResult:
-    deadline: datetime | None  # UTC
+    deadline: datetime | None  # the earliest future deadline, UTC
     confidence: float
-    candidates: int = 0
+    candidates: int = 0  # how many different deadlines were found
+    latest: datetime | None = None  # the latest of them (== deadline when there is one)
 
 
 def _time_of_day(snippet: str, date_end: int) -> tuple[int, int] | None:
@@ -85,7 +90,10 @@ def _snippets(text: str) -> list[str]:
         end = cue.end() + SNIPPET_CHARS
         if i + 1 < len(cues):
             end = min(end, cues[i + 1].start())
-        snippet = text[cue.end() : end].split("\n", 1)[0]
+        lines = text[cue.end() : end].split("\n")
+        snippet = lines[0]
+        if not re.search(r"\w", snippet):  # label and value on separate lines (table layout)
+            snippet = next((ln for ln in lines[1:] if re.search(r"\w", ln)), "")
         out.append(_LEADING_JUNK.sub("", snippet, count=1))
     return out
 
@@ -95,6 +103,7 @@ def extract_deadline(
 ) -> DeadlineResult:
     """Earliest future deadline near a cue phrase. `now` defaults to the current time."""
     now = now or datetime.now(UTC)
+    text = _PIPE_BEFORE_TIME.sub(" ", text)
     received = received_at.astimezone(IST).replace(tzinfo=None)
     settings = {
         "DATE_ORDER": "DMY",
@@ -122,7 +131,9 @@ def extract_deadline(
             found.add(deadline)
     if not found:
         return DeadlineResult(None, CONF_NONE, 0)
-    return DeadlineResult(min(found), CONF_ONE if len(found) == 1 else CONF_MANY, len(found))
+    return DeadlineResult(
+        min(found), CONF_ONE if len(found) == 1 else CONF_MANY, len(found), max(found)
+    )
 
 
 def priority_for(category: str, deadline: datetime | None, now: datetime) -> str:

@@ -8,7 +8,7 @@ from app.auth.credentials import load_credentials
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.filters.pipeline import make_filter_sink
-from app.filters.task_stage import make_task_stage
+from app.filters.task_stage import make_triage_stage
 from app.ingest.gmail import GmailApi, GoogleGmailApi, RateLimited
 from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
@@ -30,7 +30,9 @@ def sync_run(
     gmail: GmailApi = Depends(get_gmail_api),
 ) -> dict:
     try:
-        result = run_sync(user, session, gmail, make_filter_sink(session, make_task_stage(session)))
+        result = run_sync(
+            user, session, gmail, make_filter_sink(session, make_triage_stage(session))
+        )
     except SyncInProgress as exc:
         raise HTTPException(409, "A sync is already running") from exc
     except RateLimited as exc:
@@ -46,6 +48,7 @@ def sync_run(
         "delivered": result.delivered,
         "passed": result.decisions.get("passed", 0),
         "quarantined": result.decisions.get("quarantined", 0),
+        "ignored": result.decisions.get("ignored", 0),
         "already_processed": result.decisions.get("skipped", 0),
         "skipped": result.skipped,
         "failed": result.failed,

@@ -218,13 +218,19 @@ def test_a_category_match_still_wins_over_tracked_but_never_goes_to_review(db_se
     assert (task.status, task.priority, task.deadline) == ("open", "important", None)
 
 
-def test_an_email_that_is_not_tracked_still_goes_to_review_without_a_deadline(db_session, user):
+def test_an_email_that_is_not_tracked_is_an_ordinary_open_task_without_a_deadline(db_session, user):
     mail = raw_mail(
         "a5", "Statement ready", "Nothing to do.", sender="Bank <noreply@bank.example.test>"
     )
     sync(db_session, user, {"a5": mail})
     task = tasks(db_session)["a5"]
-    assert (task.source, task.status) == ("other", "needs_review")
+    # tracked senders are special only in being "important"; this one is an ordinary email
+    assert (task.source, task.status, task.priority, task.deadline) == (
+        "other",
+        "open",
+        "regular",
+        None,
+    )
 
 
 # ====================================================================== scam handling
@@ -282,8 +288,8 @@ def test_a_spoofed_tracked_sender_without_scam_phrases_is_treated_like_any_norma
 
     assert result.decisions == {"passed": 1}
     task = tasks(db_session)["s2"]
-    # not trusted, so none of the tracked-sender privileges apply
-    assert (task.source, task.status) == ("other", "needs_review")
+    # not trusted, so none of the tracked-sender privileges apply (no "tracked" source, regular priority)
+    assert (task.source, task.status, task.priority) == ("other", "open", "regular")
     assert db_session.scalar(select(ProcessedMessage.reason)) == (
         "score=2; tracked sender failed authentication"
     )

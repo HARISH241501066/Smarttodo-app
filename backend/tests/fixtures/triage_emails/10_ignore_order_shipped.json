@@ -1,0 +1,38 @@
+{
+  "id": "tri10",
+  "threadId": "thr-tri10",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767261600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your order #48213 has shipped"
+      },
+      {
+        "name": "From",
+        "value": "Shop <orders@shop.example.test>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 80,
+      "data": "WW91ciBvcmRlciBvZiAnRW5naW5lZXJpbmcgTWF0aGVtYXRpY3MnIGlzIG9uIGl0cyB3YXkgYW5kIHdpbGwgYXJyaXZlIGJ5IEZyaWRheS4"
+    }
+  }
+}

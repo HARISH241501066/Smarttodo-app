@@ -1,0 +1,38 @@
+{
+  "id": "tri16",
+  "threadId": "thr-tri16",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767283200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Exam registration"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 95,
+      "data": "UmVnaXN0cmF0aW9uIGNsb3NlcyBvbiAzMCBKYW4gMjAyNi4gUmVnaXN0ZXIgYXQgaHR0cHM6Ly9leGFtZm9ybS5ucHRlbC5hYy5pbi9yZWdpc3RyYXRpb24vYXBwbHk"
+    }
+  }
+}

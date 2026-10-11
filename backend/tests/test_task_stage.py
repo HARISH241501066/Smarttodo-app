@@ -102,18 +102,22 @@ def test_fixtures_become_tasks_with_expected_fields(db_session, user):
     assert quiz.notes is None  # the body is never stored
 
 
-def test_a_missing_deadline_goes_to_needs_review_with_the_gmail_fallback(db_session, user):
+def test_a_missing_deadline_gives_an_open_task_with_no_deadline_and_the_gmail_fallback(
+    db_session, user
+):
     sync(db_session, user, {k: v for k, v in fixture_messages().items() if k == "task10"})
     task = tasks(db_session, user)["task10"]
-    assert (task.status, task.deadline, task.confidence) == ("needs_review", None, 0.3)
+    assert (task.status, task.deadline, task.confidence) == ("open", None, None)
     assert (task.link_type, task.link) == ("gmail", "https://mail.google.com/mail/u/0/#all/task10")
     assert task.source == "college" and task.priority == "regular"
 
 
-def test_several_deadline_candidates_still_open_at_the_threshold(db_session, user):
+def test_several_different_deadlines_go_to_review_with_the_earliest_filled_in(db_session, user):
     sync(db_session, user, {k: v for k, v in fixture_messages().items() if k == "task15"})
     task = tasks(db_session, user)["task15"]
-    assert (task.status, task.confidence) == ("open", 0.6)
+    # 12 Jan and 20 Jan are ambiguous, so a person confirms; the earliest is pre-filled
+    assert (task.status, task.confidence) == ("needs_review", 0.6)
+    assert task.deadline.astimezone(UTC).day == 12
 
 
 def test_deadline_within_48_hours_is_urgent(db_session, user):
@@ -221,9 +225,10 @@ def test_done_tasks_are_not_reopened_by_a_similar_email(db_session, user):
     assert tasks(db_session, user)["c1"].status == "done"
 
 
-def test_extension_upgrades_a_needs_review_task_to_open(db_session, user):
+def test_an_extension_gives_a_deadline_to_an_earlier_task_that_had_none(db_session, user):
     sync(db_session, user, {"r1": raw_mail("r1", "Assignment 3", "Details soon.", T0)})
-    assert tasks(db_session, user)["r1"].status == "needs_review"
+    first = tasks(db_session, user)["r1"]
+    assert (first.status, first.deadline) == ("open", None)  # no deadline is not a reason to wait
     sync(
         db_session,
         user,
@@ -231,6 +236,7 @@ def test_extension_upgrades_a_needs_review_task_to_open(db_session, user):
     )
     task = tasks(db_session, user)["r1"]
     assert (task.status, task.confidence) == ("open", 0.9)
+    assert task.deadline is not None and len(tasks(db_session, user)) == 1
 
 
 # ---------- no network access for email links ----------

@@ -1,0 +1,38 @@
+{
+  "id": "tri14",
+  "threadId": "thr-tri14",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767276000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Hello"
+      },
+      {
+        "name": "From",
+        "value": "Ravi <ravi.k@gmail.com>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 45,
+      "data": "SnVzdCBzYXlpbmcgaGksIGhvcGUgeW91ciB3ZWVrIGlzIGdvaW5nIHdlbGwu"
+    }
+  }
+}

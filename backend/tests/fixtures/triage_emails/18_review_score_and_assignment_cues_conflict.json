@@ -1,0 +1,38 @@
+{
+  "id": "tri18",
+  "threadId": "thr-tri18",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767290400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Quiz 3 score published; Assignment 5 is due"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 67,
+      "data": "WW91ciBxdWl6IHNjb3JlIGlzIHB1Ymxpc2hlZC4gU2VwYXJhdGVseSwgQXNzaWdubWVudCA1IGlzIGR1ZSBzb29uLg"
+    }
+  }
+}

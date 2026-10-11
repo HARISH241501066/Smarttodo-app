@@ -1,0 +1,48 @@
+{
+  "id": "tri08",
+  "threadId": "thr-tri08",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767254400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "New Quiz Published: Week 9 Quiz"
+      },
+      {
+        "name": "From",
+        "value": "Digii <no-reply@digii.example>"
+      },
+      {
+        "name": "Authentication-Results",
+        "value": "mx.google.com; dkim=pass; spf=pass; dmarc=pass"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 692,
+          "data": "PGh0bWw-PGJvZHk-Cjx0YWJsZSB3aWR0aD0iNjAwIiBjZWxscGFkZGluZz0iOCI-PHRyPjx0ZD48aDI-TmV3IFF1aXogUHVibGlzaGVkPC9oMj48L3RkPjwvdHI-Cjx0cj48dGQ-PHRhYmxlPgo8dHI-PHRkPkNvdXJzZTwvdGQ-PHRkPjo8L3RkPjx0ZD5EYXRhIFN0cnVjdHVyZXM8L3RkPjwvdHI-Cjx0cj48dGQ-UXVpejwvdGQ-PHRkPjo8L3RkPjx0ZD5XZWVrIDkgUXVpejwvdGQ-PC90cj4KPHRyPjx0ZD5PcGVucyBvbjwvdGQ-PHRkPjo8L3RkPjx0ZD4xMSBPY3QgMjAyNiB8IDk6MDAgQU08L3RkPjwvdHI-Cjx0cj48dGQ-Q2xvc2VzIG9uPC90ZD48dGQ-OjwvdGQ-PHRkPjE4IE9jdCAyMDI2IHwgMTE6NTkgUE08L3RkPjwvdHI-CjwvdGFibGU-PC90ZD48L3RyPgo8dHI-PHRkPjxhIGhyZWY9Imh0dHBzOi8vYXBwLmRpZ2lpLmV4YW1wbGUvc3R1ZGVudC9xdWl6L3N0YXJ0P3F1aXpJZD05IiBzdHlsZT0iYmFja2dyb3VuZDojMDZjO2NvbG9yOiNmZmY7cGFkZGluZzoxMnB4IDI0cHgiPlRha2UgUXVpejwvYT48L3RkPjwvdHI-Cjx0cj48dGQ-PGEgaHJlZj0iaHR0cHM6Ly9hcHAuZGlnaWkuZXhhbXBsZS91bnN1YnNjcmliZT91PTEiPlVuc3Vic2NyaWJlPC9hPiB8CjxhIGhyZWY9Imh0dHBzOi8vYXBwLmRpZ2lpLmV4YW1wbGUvcHJpdmFjeSI-UHJpdmFjeTwvYT48L3RkPjwvdHI-CjwvdGFibGU-PC9ib2R5PjwvaHRtbD4"
+        }
+      }
+    ]
+  }
+}

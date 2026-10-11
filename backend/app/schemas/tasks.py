@@ -64,6 +64,7 @@ class TaskOut(BaseModel):
     link_domain: str | None
     link_confidence: float | None
     confidence: float | None
+    sender_email: str | None
     created_at: datetime
     updated_at: datetime
 
@@ -86,6 +87,7 @@ class TaskOut(BaseModel):
             link_domain=link_domain(task.link),
             link_confidence=task.link_confidence,
             confidence=task.confidence,
+            sender_email=task.sender_email,
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
