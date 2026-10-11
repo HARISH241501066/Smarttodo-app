@@ -1183,6 +1183,30 @@ test("folders at 380px: a drawer opens from the header, lists folders, and close
   await context.close();
 });
 
+// ------------------------------------------------------------------ search
+
+test("search: finds tasks from both places by title, notes, tag or source, including finished ones", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  await app.getByRole("link", { name: "Search", exact: true }).click();
+  await expect(app).toHaveURL(/\/search$/);
+  const box = app.getByLabel("Search tasks");
+  const results = app.getByTestId("search-results");
+
+  await box.fill("nptel");
+  await expect(results.getByTestId("task-card").filter({ hasText: "Submit NPTEL Assignment 5" })).toBeVisible();
+  await box.fill("hostile subject");
+  await expect(results.getByTestId("task-card")).toHaveCount(1);
+  await expect(results.locator("h3 b, h3 script")).toHaveCount(0); // text, not markup
+  await box.fill("mark me done"); // a finished manual task is found too
+  await expect(results.getByTestId("task-card").filter({ hasText: "Mark me done" })).toBeVisible();
+  await box.fill("zzzz-nothing");
+  await expect(app.getByText("No matches")).toBeVisible();
+  await box.fill("");
+  await expect(app.getByText("Type to search all your tasks")).toBeVisible();
+  expect((await api<unknown[]>(app, "/search?q=nptel")).length).toBeGreaterThan(0);
+});
+
 // ------------------------------------------------------------------ security
 
 test("security: every page carries the security headers", async ({ app }) => {

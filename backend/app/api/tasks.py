@@ -47,6 +47,7 @@ router = APIRouter(tags=["tasks"])
 DEFAULT_LIMIT = 200
 MAX_LIMIT = 500
 MAX_SUBTASKS = 100
+BS = chr(92)  # the LIKE escape character
 MAX_EMAIL_CHARS = 60_000
 
 
@@ -131,6 +132,33 @@ def deadlines(
         .order_by(Task.deadline.asc().nulls_last(), Task.created_at.desc(), Task.id.desc())
     )
     return [TaskOut.from_task(t) for t in session.scalars(stmt)]
+
+
+@router.get("/search", response_model=list[TaskOut])
+def search(
+    q: str = Query(..., min_length=1, max_length=100),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[TaskOut]:
+    """Tasks (open or done, both origins) whose title, notes, tag or source name contain `q`."""
+    needle = " ".join(q.split())
+    if not needle:
+        raise HTTPException(422, "Type something to search for")
+    esc = needle.replace(BS, BS + BS).replace("%", BS + "%").replace("_", BS + "_")
+    like = f"%{esc}%"
+    match = or_(
+        *(
+            col.ilike(like, escape=BS)
+            for col in (Task.title, Task.notes, Task.tag, Task.source_name)
+        )
+    )
+    stmt = (
+        select(Task)
+        .where(Task.user_id == user.id, Task.status.in_(("open", "done")), _not_snoozed(), match)
+        .order_by(Task.status.desc(), Task.deadline.asc().nulls_last(), Task.id.desc())
+        .limit(50)
+    )
+    return [TaskOut.from_task(x) for x in session.scalars(stmt)]
 
 
 @router.get("/tags", response_model=list[str])

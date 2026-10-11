@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { useApp } from "@/components/AppProvider";
-import { CalendarIcon, FolderIcon, GearIcon, InboxIcon, ShieldIcon, UserIcon, XIcon } from "@/components/icons";
+import { CalendarIcon, FolderIcon, GearIcon, InboxIcon, SearchIcon, ShieldIcon, UserIcon, XIcon } from "@/components/icons";
 import { FolderNav } from "@/components/FolderNav";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -68,6 +68,14 @@ export function Shell({ children }: { children: ReactNode }) {
             >
               <FolderIcon width={20} height={20} />
             </button>
+            <Link
+              href="/search"
+              aria-label="Search"
+              title="Search"
+              className={`rounded-lg p-2 hover:bg-surface-2 ${pathname.startsWith("/search") ? "text-primary" : "text-muted"}`}
+            >
+              <SearchIcon width={20} height={20} />
+            </Link>
             <InstallButton />
             <ThemeToggle />
             {attention > 0 ? (

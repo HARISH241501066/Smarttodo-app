@@ -354,3 +354,23 @@ def test_amazon_ses_tracking_links_are_unwrapped():
     assert unwrap_tracking_url(plain) == plain
     odd = "https://x.awstrack.me/L0/not-a-url/1/2"
     assert unwrap_tracking_url(odd) == odd
+
+
+def test_search_finds_tasks_by_title_notes_tag_or_source_and_only_yours(api, api_b, engine, uid):
+    make(api, "Write essay", notes="about Rivers", tag="Uni")
+    make(api, "Buy milk", tag="Home")
+    tid = add_email_task(engine, uid, "Week 3 quiz")
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE tasks SET source_name = 'Digii' WHERE id = :i"), {"i": tid})
+    done = make(api, "Old essay")
+    api.post(f"/tasks/{done['id']}/done")
+    make(api_b, "Essay of B")
+    found = lambda q: sorted(t["title"] for t in api.get("/search", params={"q": q}).json())  # noqa: E731
+    assert found("ESSAY") == ["Old essay", "Write essay"]
+    assert found("rivers") == ["Write essay"]
+    assert found("home") == ["Buy milk"]
+    assert found("digii") == ["Week 3 quiz"]
+    assert found("%") == [] and found("_") == []  # wildcards are plain characters
+    assert api.get("/search", params={"q": ""}).status_code == 422
+    assert api.get("/search", params={"q": "x" * 101}).status_code == 422
+    assert api.get("/search", params={"q": "   "}).status_code == 422
