@@ -469,6 +469,19 @@ def test_rescued_message_without_links_still_gets_the_gmail_fallback(api, engine
     assert task["link_type"] == "gmail"
 
 
+def test_a_rescued_email_without_a_deadline_goes_to_open_tasks_not_review(api, engine, uid):
+    raw = raw_fixture("task_emails", "10_college_timetable_no_deadline.json")
+    qid = add_quarantine(engine, uid, raw["id"])
+    use_gmail(FakeGmailApi({raw["id"]: raw}))
+
+    task = api.post(f"/quarantine/{qid}/rescue").json()["task"]
+
+    assert task["deadline"] is None  # nothing for the extractor to find...
+    assert task["status"] == "open"  # ...but the user vouched for it, so it is not "needs review"
+    assert api.get("/review").json() == []
+    assert [t["id"] for t in api.get("/tasks?status=open").json()] == [task["id"]]
+
+
 def test_rescue_twice_and_unknown_id(api, engine, uid):
     raw = raw_fixture("task_emails", "04_gform_plain_link.json")
     qid = add_quarantine(engine, uid, raw["id"])

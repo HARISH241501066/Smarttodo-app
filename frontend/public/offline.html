@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Offline - Smart To-Do</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 24px;
+        text-align: center;
+        background: #f4f6fa;
+        color: #0f172a;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { background: #0b1020; color: #e6ebf5; }
+      }
+      button { font-size: 18px; padding: 12px 24px; border-radius: 10px; border: 0; background: #2563eb; color: #fff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You're offline</h1>
+      <p>Your tasks will be back as soon as you reconnect.</p>
+      <button onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

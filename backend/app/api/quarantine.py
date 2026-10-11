@@ -47,6 +47,21 @@ def list_quarantine(
     return list(session.scalars(stmt.order_by(Quarantine.created_at.desc(), Quarantine.id.desc())))
 
 
+@router.post("/quarantine/{quarantine_id}/confirm-scam", response_model=QuarantineOut)
+def confirm_scam(
+    quarantine_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Quarantine:
+    """The user agrees it is a scam: keep the record (so it is never reprocessed) but close it."""
+    row = _owned(session, user, quarantine_id)
+    if row.status != "held":
+        raise HTTPException(409, f"Message is already {row.status}")
+    row.status = "confirmed_scam"
+    session.commit()
+    return row
+
+
 @router.post("/quarantine/{quarantine_id}/rescue", response_model=RescueOut)
 def rescue(
     quarantine_id: int,
@@ -71,6 +86,10 @@ def rescue(
 
     now = datetime.now(UTC)
     task, created = ingest_message(session, user, parsed, now)
+    if task is not None and created and task.status == "needs_review":
+        # The user has looked at this email and vouched for it, so it goes straight to their tasks
+        # rather than into the review queue (no deadline was found, which is why it would be there).
+        task.status = "open"
     if task is not None:
         sync_reminders(session, task, now=now, created=created)
     row.status = "rescued"

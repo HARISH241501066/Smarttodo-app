@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     vapid_private_key: SecretStr = SecretStr("")
     vapid_subject: str = ""
 
+    # Where the dashboard lives; a test push opens it.
+    frontend_url: str = "http://localhost:3000"
+
     calendar_enabled: bool = True  # events are only attempted for users who have a Google token
     # Serves /dev/push-test and /dev/sw.js so Web Push can be tried before the dashboard exists.
     dev_push_test_page: bool = False

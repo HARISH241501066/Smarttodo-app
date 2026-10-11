@@ -1182,3 +1182,91 @@ def test_config_defaults_are_safe():
     assert s.public_base_url == "http://localhost:8000"
     assert s.dev_push_test_page is False and s.sms_enabled is False and s.scheduler_enabled is False
     assert s.smtp_host == "" and s.smtp_security == "starttls"
+
+
+# ====================================================================== dashboard additions
+
+
+def add_quarantine_row(engine, uid, message_id="q1", status="held") -> int:
+    with engine.begin() as conn:
+        return conn.execute(
+            text(
+                "INSERT INTO quarantine (user_id, message_id, subject, sender, score, reasons, status) "
+                "VALUES (:u, :m, 's', 'x@example.test', 6, '[\"r\"]'::jsonb, :s) RETURNING id"
+            ),
+            {"u": uid, "m": message_id, "s": status},
+        ).scalar_one()
+
+
+def test_confirm_scam_closes_the_quarantine_item(api, api_b, engine, uid):
+    qid = add_quarantine_row(engine, uid)
+    assert api_b.post(f"/quarantine/{qid}/confirm-scam").status_code == 404  # not theirs
+    resp = api.post(f"/quarantine/{qid}/confirm-scam")
+    assert resp.status_code == 200 and resp.json()["status"] == "confirmed_scam"
+    assert api.get("/quarantine").json() == []  # no longer held
+    assert [r["id"] for r in api.get("/quarantine?status=confirmed_scam").json()] == [qid]
+    assert api.post(f"/quarantine/{qid}/confirm-scam").status_code == 409
+    from app.api.sync import get_gmail_api
+    from app.main import app
+    from tests.gmail_fakes import FakeGmailApi
+
+    app.dependency_overrides[get_gmail_api] = lambda: FakeGmailApi({})
+    assert api.post(f"/quarantine/{qid}/rescue").status_code == 409  # already closed
+    assert api.post("/quarantine/999999/confirm-scam").status_code == 404
+
+
+def test_confirm_scam_requires_login(client_factory):
+    assert client_factory().post("/quarantine/1/confirm-scam").status_code == 401
+
+
+class FakeSender:
+    def __init__(self, fail=False):
+        self.sent, self.fail = [], fail
+
+    def send(self, message):
+        if self.fail:
+            raise RuntimeError("push service down")
+        self.sent.append(message)
+
+
+def use_push_sender(sender):
+    from app.api.push import get_push_sender
+    from app.main import app
+
+    app.dependency_overrides[get_push_sender] = lambda: sender
+
+
+def test_test_push_needs_login_configuration_and_a_subscription(
+    client_factory, api, db_session, uid
+):
+    assert client_factory().post("/push/test").status_code == 401
+    use_push_sender(None)
+    assert api.post("/push/test").status_code == 503  # Web Push not configured
+    use_push_sender(FakeSender())
+    assert api.post("/push/test").status_code == 409  # nothing subscribed yet
+    assert api.get("/notifications").json()["items"] == []
+
+
+def test_test_push_sends_to_the_user_and_adds_a_bell_entry(api, api_b, db_session, uid):
+    api.post("/push/subscribe", json=SUB)
+    fake = FakeSender()
+    use_push_sender(fake)
+    resp = api.post("/push/test")
+    assert resp.status_code == 200 and resp.json() == {"subscriptions": 1}
+    assert [(m.user_id, m.title, m.link) for m in fake.sent] == [
+        (uid, "Test notification", get_settings().frontend_url)
+    ]
+    items = api.get("/notifications").json()["items"]
+    assert [n["title"] for n in items] == ["Test notification"]
+    assert api_b.get("/notifications").json()["items"] == []  # only the caller's bell
+
+
+def test_test_push_reports_a_failing_push_service(api):
+    api.post("/push/subscribe", json=SUB)
+    use_push_sender(FakeSender(fail=True))
+    assert api.post("/push/test").status_code == 502
+    assert api.get("/notifications").json()["items"] == []  # nothing claimed as delivered
+
+
+def test_the_frontend_url_defaults_to_the_local_dashboard():
+    assert Settings(_env_file=None).frontend_url == "http://localhost:3000"
