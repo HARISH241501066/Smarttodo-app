@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/components/AppProvider";
 import { PlusIcon } from "@/components/icons";
 import { TaskCard } from "@/components/TaskCard";
+import { EmailViewer } from "@/components/EmailViewer";
 import { TaskModal } from "@/components/TaskModal";
 import { useToast } from "@/components/toast";
 import { Button, ConfirmDialog, EmptyState, ErrorNote, Spinner } from "@/components/ui";
@@ -54,6 +55,7 @@ function List({ origin, title, empty }: Props) {
   const [modal, setModal] = useState<ModalState>(null);
   const [toDelete, setToDelete] = useState<Task | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewing, setViewing] = useState<Task | null>(null);
   const [wholeDone, setWholeDone] = useState<Task | null>(null);
   const [finishing, setFinishing] = useState(false);
 
@@ -203,6 +205,7 @@ function List({ origin, title, empty }: Props) {
       onEdit={(t) => setModal({ mode: t.origin === "manual" ? "edit" : "email", task: t })}
       onDelete={setToDelete}
       onDismiss={dismiss}
+      onViewEmail={setViewing}
       onSubtaskChange={onSubtaskChange}
       onError={(m) => toast.show(m, { kind: "error" })}
     />
@@ -287,6 +290,8 @@ function List({ origin, title, empty }: Props) {
           onCancel={() => setToDelete(null)}
         />
       ) : null}
+
+      {viewing ? <EmailViewer task={viewing} onClose={() => setViewing(null)} /> : null}
 
       {wholeDone ? (
         <ConfirmDialog

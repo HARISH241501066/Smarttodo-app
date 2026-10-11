@@ -873,6 +873,30 @@ test("subtasks: add one to an email task, and it counts", async ({ app }) => {
   await app.keyboard.press("Escape");
 });
 
+test("email tasks: view the full email, and a task whose deadline passed is completed automatically", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  const task = card(app, "Submit NPTEL Assignment 5");
+  await task.getByRole("button", { name: /View full email for/ }).click();
+  const view = app.getByRole("dialog", { name: "Full email" });
+  await expect(view.getByTestId("email-view")).toContainText("Week 9 content");
+  await expect(view.getByTestId("email-view")).toContainText("From:");
+  await expect(view.getByRole("link", { name: "Open in Gmail" })).toHaveAttribute("href", /mail\.google\.com\/mail\/u\/0\/#all\/src03$/);
+  await view.getByRole("button", { name: "Close", exact: true }).last().click();
+  await expect(view).toHaveCount(0);
+  // manual tasks have no such button
+  await app.goto("/");
+  await waitForTasks(app);
+  await expect(app.getByRole("button", { name: /View full email/ })).toHaveCount(0);
+
+  // an email task past its deadline is moved to Completed; a manual one stays open and overdue
+  const sql = await app.request.post("/api/tasks", { data: { title: "E2E manual overdue", deadline: new Date(Date.now() - 3_600_000).toISOString() } });
+  expect(sql.ok()).toBeTruthy();
+  await app.goto("/deadlines");
+  await expect(app.getByTestId("group-overdue")).toContainText("E2E manual overdue");
+  await expect(app.getByTestId("group-overdue").getByTestId("deadline-row").filter({ hasText: "NPTEL" })).toHaveCount(0);
+});
+
 // ------------------------------------------------------------------ deadlines
 
 test("deadlines: groups, mixed deadline order, filters, quick done and show completed", async ({ app }) => {

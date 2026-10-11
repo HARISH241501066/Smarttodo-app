@@ -22,6 +22,7 @@ from app.filters.deadline import (
 )
 from app.filters.decide import REVIEW, Decision
 from app.filters.links import pick_action_link
+from app.filters.urls import unwrap_tracking_url
 from app.ingest.mime import ParsedMessage
 from app.models import Task, User
 
@@ -113,13 +114,26 @@ def ingest_message(
         link = decision.link or pick_action_link(message)
         source, source_name = decision.source_type, decision.source_name
         status = "needs_review" if decision.kind == REVIEW else "open"
+        if status == "open" and deadline.deadline is not None and deadline.deadline < now:
+            status = "done"  # deadline already over: straight to Completed
 
     own = session.scalar(
         select(Task).where(Task.user_id == user.id, Task.source_ref == message.message_id)
     )
     if own is not None:  # this very message again (a re-check): never fold it into another task
+        if own.link and unwrap_tracking_url(own.link) != own.link:
+            own.link = unwrap_tracking_url(own.link)  # a tracking wrapper that can be decoded now
         if decision is not None and not own.user_confirmed:
             own.source, own.source_name = source, source_name  # follow the source's current name
+            if link.link_type == "action":  # e.g. a tracking wrapper that can now be decoded
+                own.link, own.link_type, own.link_confidence = (
+                    link.url,
+                    link.link_type,
+                    link.confidence,
+                )
+            if own.deadline is None and deadline.deadline is not None:  # a better parse now
+                own.deadline, own.confidence = deadline.deadline, deadline.confidence
+                own.priority = priority_for(source, deadline.deadline, now)
         return own, False
     existing = _find_existing(session, user.id, source, source_name, message.subject)
     if existing is not None:

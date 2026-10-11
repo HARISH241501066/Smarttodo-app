@@ -381,3 +381,17 @@ def test_preview_endpoint_is_scoped_to_the_user(api, api_b, engine, uid):
     api.post("/tasks", json={"title": "mine"})
     assert api.get("/sources/rebuild/preview").json()["protected"] == 1
     assert api_b.get("/sources/rebuild/preview").json()["protected"] == 0
+
+
+def test_a_task_still_holding_a_tracking_wrapper_gets_the_real_link_on_rebuild(db_session, user):
+    ref = fixture_id("task_digii_new_quiz_table")
+    wrapped = (
+        "https://x.r.ap-south-1.awstrack.me/L0/https:%2F%2Fapp.digii.example%2Fquiz%2F9/1/abc/sig"
+    )
+    task = add(
+        db_session, user, ref, source="digii", source_name="Digii", user_confirmed=True,
+        sender_email="no-reply@digii.example", link=wrapped, link_type="action",
+    )  # fmt: skip
+    rebuild(db_session, user)
+    db_session.refresh(task)
+    assert task.link == "https://app.digii.example/quiz/9"

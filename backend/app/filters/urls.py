@@ -32,9 +32,22 @@ def _http_url(value: str) -> str | None:
     return None
 
 
+def _path_wrapped(url: str) -> str | None:
+    """Amazon SES click tracking puts the destination in the path: https://x.awstrack.me/L0/<url>/1/..."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if (host == "awstrack.me" or host.endswith(".awstrack.me")) and parsed.path.startswith("/L0/"):
+        return _http_url(unquote(parsed.path[4:].split("/", 1)[0]))
+    return None
+
+
 def unwrap_tracking_url(url: str) -> str:
     current = url
     for _ in range(MAX_LAYERS):
+        in_path = _path_wrapped(current)
+        if in_path and in_path != current:
+            current = in_path
+            continue
         query = urlparse(current).query
         if not query:
             break

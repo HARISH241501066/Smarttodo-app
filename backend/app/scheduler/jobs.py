@@ -17,7 +17,7 @@ from app.ingest.gmail import GmailApi, GoogleGmailApi, RateLimited
 from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
 from app.notify.calendar import reconcile_calendar
-from app.priority import recompute_priorities
+from app.priority import complete_expired_email_tasks, recompute_priorities
 from app.scheduler.digest import run_digest
 from app.scheduler.dispatcher import dispatch_due
 
@@ -97,9 +97,10 @@ def poll_sync_job() -> None:
 
 def priority_recompute_job() -> None:
     def work(session: Session) -> None:
+        expired = complete_expired_email_tasks(session)
         changed = recompute_priorities(session)
         session.commit()
-        logger.info("priority recompute: %d task(s) upgraded", changed)
+        logger.info("priority recompute: %d upgraded, %d expired completed", changed, expired)
 
     _guarded("priority_recompute", work)
 

@@ -61,6 +61,7 @@ interface Props {
   /** Manual tasks are deleted, email tasks are dismissed. */
   onDelete?: (task: Task) => void;
   onDismiss?: (task: Task) => void;
+  onViewEmail?: (task: Task) => void;
   onSubtaskChange?: (change: SubtaskChange, ticked: boolean) => void;
   onError?: (message: string) => void;
 }
@@ -77,6 +78,7 @@ export function TaskCard({
   onEdit,
   onDelete,
   onDismiss,
+  onViewEmail,
   onSubtaskChange,
   onError,
 }: Props) {
@@ -175,6 +177,11 @@ export function TaskCard({
             <CheckIcon width={16} height={16} /> Done
           </Button>
         )}
+        {!manual && onViewEmail ? (
+          <Button size="sm" variant="ghost" onClick={() => onViewEmail(task)} aria-label={`View full email for ${task.title}`}>
+            <MailIcon width={16} height={16} /> View email
+          </Button>
+        ) : null}
         <Button size="sm" variant="ghost" onClick={() => onEdit(task)} disabled={busy} aria-label={`Edit ${task.title}`}>
           <PencilIcon width={16} height={16} /> Edit
         </Button>

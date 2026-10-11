@@ -13,7 +13,7 @@ from datetime import datetime
 from email.utils import parseaddr
 
 from app.filters.auth_check import DEFAULT_BRANDS, check_authenticity
-from app.filters.deadline import DeadlineResult, extract_deadline
+from app.filters.deadline import CONF_ONE, DeadlineResult, extract_deadline
 from app.filters.links import LinkChoice, pick_action_link
 from app.filters.scam import QUARANTINE_THRESHOLD, ScamVerdict, score_message
 from app.filters.triage_rules import (
@@ -150,6 +150,10 @@ def _task_decision(
     need_deadline: bool,
 ) -> Decision:
     deadline = extract_deadline(f"{message.subject}\n{message.body_text}", received, now)
+    if deadline.deadline is None and deadline.expired is not None and not need_deadline:
+        # A source mail whose own close date has already passed is shown as overdue rather than
+        # as "No deadline". (A keyword mail with only a past date is still dropped, below.)
+        deadline = DeadlineResult(deadline.expired, CONF_ONE, 1, deadline.expired)
     if deadline.deadline is None and (need_deadline or require_deadline):
         why = "no deadline found" if need_deadline else "no deadline and a deadline is required"
         return Decision(DROP, f"dropped: {why}", source, keyword, deadline)

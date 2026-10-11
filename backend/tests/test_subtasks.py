@@ -20,7 +20,8 @@ def add_email_task(engine, uid, title="Email task", deadline=None, source="nptel
     with engine.begin() as conn:
         return conn.execute(
             text(
-                "INSERT INTO tasks (user_id, title, source, source_ref, status, deadline, priority) "
+                "INSERT INTO tasks (user_id, title, source, source_ref, status, deadline, "
+                "priority) "
                 "VALUES (:u, :t, :s, :r, :st, :d, 'regular') RETURNING id"
             ),
             {"u": uid, "t": title, "s": source, "r": f"ref-{title}", "st": status, "d": deadline},
@@ -158,7 +159,7 @@ def test_deadlines_are_ordered_soonest_first_with_overdue_in_and_no_deadline_las
     make(api, "manual later", deadline=iso(days=10))
     make(api, "manual no deadline")
     make(api, "manual soon", deadline=iso(hours=5))
-    add_email_task(engine, uid, "email overdue", deadline=datetime.now(UTC) - timedelta(days=2))
+    make(api, "manual overdue", deadline=iso(days=-2))
     add_email_task(engine, uid, "email tomorrow", deadline=datetime.now(UTC) + timedelta(days=1))
     add_email_task(engine, uid, "email no deadline", deadline=None)
     add_email_task(
@@ -174,7 +175,7 @@ def test_deadlines_are_ordered_soonest_first_with_overdue_in_and_no_deadline_las
 
     titles = [t["title"] for t in api.get("/deadlines").json()]
 
-    assert titles[:4] == ["email overdue", "manual soon", "email tomorrow", "manual later"]
+    assert titles[:4] == ["manual overdue", "manual soon", "email tomorrow", "manual later"]
     assert set(titles[4:]) == {"manual no deadline", "email no deadline"}  # null deadlines last
     assert "email done" not in titles and "email review" not in titles  # open tasks only
 
@@ -267,3 +268,89 @@ def test_a_manual_task_with_a_non_http_link_is_rejected(api, link):
 def test_a_manual_task_with_an_https_link_is_accepted(api):
     task = make(api, "ok", link="https://example.com/x")
     assert task["link"] == "https://example.com/x" and task["link_type"] == "action"
+
+
+# ---------- expired email tasks complete themselves; the full email; tracking links ----------
+
+
+def test_an_email_task_past_its_deadline_moves_to_completed_but_a_manual_one_stays_overdue(
+    api, engine, uid
+):
+    email = add_email_task(
+        engine, uid, "email late", deadline=datetime.now(UTC) - timedelta(hours=3)
+    )
+    pending = add_email_task(
+        engine, uid, "email ok", deadline=datetime.now(UTC) + timedelta(days=2)
+    )
+    manual = make(api, "manual late", deadline=iso(hours=-3))
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO reminders (task_id, fire_at, channel) "
+                "VALUES (:t, now() + interval '1 day', 'push')"
+            ),
+            {"t": email},
+        )
+
+    open_titles = [t["title"] for t in api.get("/tasks?status=open").json()]
+    assert (
+        "email late" not in open_titles
+        and "email ok" in open_titles
+        and "manual late" in open_titles
+    )
+    assert api.get(f"/tasks/{email}").json()["status"] == "done"
+    assert api.get(f"/tasks/{pending}").json()["status"] == "open"
+    assert api.get(f"/tasks/{manual['id']}").json()["status"] == "open"
+    assert reminders(engine, email) == 0
+    assert "email late" not in [t["title"] for t in api.get("/deadlines").json()]
+    assert "email late" in [t["title"] for t in api.get("/deadlines?include_done=true").json()]
+
+
+def test_view_the_full_email_behind_an_email_task(api, engine, uid):
+    from app.api.sync import get_gmail_api
+    from app.main import app
+    from tests.gmail_fakes import FakeGmailApi, fixtures_by_number
+
+    fake = FakeGmailApi(fixtures_by_number(1))
+    app.dependency_overrides[get_gmail_api] = lambda: fake
+    try:
+        tid = add_email_task(engine, uid, "From mail")
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE tasks SET source_ref = 'msg001' WHERE id = :i"), {"i": tid})
+        body = api.get(f"/tasks/{tid}/email")
+        assert body.status_code == 200
+        data = body.json()
+        assert data["subject"] and data["sender"] and data["body_text"]
+        assert data["gmail_url"].endswith("/msg001") and data["truncated"] is False
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE tasks SET source_ref = 'gone-msg' WHERE id = :i"), {"i": tid})
+        assert api.get(f"/tasks/{tid}/email").status_code == 410
+        assert api.get("/tasks/999999/email").status_code == 404
+        manual = make(api, "mine")
+        assert api.get(f"/tasks/{manual['id']}/email").status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_gmail_api, None)
+
+
+def test_the_email_view_is_private_to_the_owner(api, api_b, engine, uid):
+    from app.api.sync import get_gmail_api
+    from app.main import app
+    from tests.gmail_fakes import FakeGmailApi
+
+    app.dependency_overrides[get_gmail_api] = lambda: FakeGmailApi({})
+    try:
+        tid = add_email_task(engine, uid, "Private")
+        assert api_b.get(f"/tasks/{tid}/email").status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_gmail_api, None)
+
+
+def test_amazon_ses_tracking_links_are_unwrapped():
+    from app.filters.urls import unwrap_tracking_url
+
+    wrapped = "https://lc21skd8.r.ap-south-1.awstrack.me/L0/https:%2F%2Fapp.digii.example%2Fquiz%2F9%3Fx%3D1/1/0100abcd-000000/sig=123"
+    assert unwrap_tracking_url(wrapped) == "https://app.digii.example/quiz/9?x=1"
+    plain = "https://app.digii.example/quiz/9"
+    assert unwrap_tracking_url(plain) == plain
+    odd = "https://x.awstrack.me/L0/not-a-url/1/2"
+    assert unwrap_tracking_url(odd) == odd

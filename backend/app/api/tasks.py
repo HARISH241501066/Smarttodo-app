@@ -4,13 +4,17 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from googleapiclient.errors import HttpError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.api.sync import get_gmail_api
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.filters.deadline import priority_for
 from app.filters.links import gmail_fallback
+from app.ingest.gmail import GmailApi, MessageGone, RateLimited
+from app.ingest.mime import parse_message
 from app.models import Subtask, Task, User
 from app.notify.calendar import (
     CalendarApi,
@@ -18,9 +22,10 @@ from app.notify.calendar import (
     get_calendar_api,
     try_sync_task_event,
 )
-from app.priority import recompute_priorities
+from app.priority import complete_expired_email_tasks, recompute_priorities
 from app.scheduler.reminders import sync_reminders
 from app.schemas.tasks import (
+    EmailOut,
     Priority,
     ReviewConfirm,
     Source,
@@ -42,6 +47,7 @@ router = APIRouter(tags=["tasks"])
 DEFAULT_LIMIT = 200
 MAX_LIMIT = 500
 MAX_SUBTASKS = 100
+MAX_EMAIL_CHARS = 60_000
 
 
 def owned_task(session: Session, user: User, task_id: int) -> Task:
@@ -85,7 +91,8 @@ def list_tasks(
     session: Session = Depends(get_session),
 ) -> list[TaskOut]:
     """Sorted by deadline (soonest first, tasks without one last)."""
-    if recompute_priorities(session, user_id=user.id):
+    expired = complete_expired_email_tasks(session, user_id=user.id)
+    if recompute_priorities(session, user_id=user.id) or expired:
         session.commit()
     stmt = select(Task).where(Task.user_id == user.id)
     if status:
@@ -110,7 +117,8 @@ def deadlines(
 ) -> list[TaskOut]:
     """Every open task, manual and email, soonest deadline first, no-deadline last. Overdue tasks
     are included (they sort first). `include_done` adds completed tasks."""
-    if recompute_priorities(session, user_id=user.id):
+    expired = complete_expired_email_tasks(session, user_id=user.id)
+    if recompute_priorities(session, user_id=user.id) or expired:
         session.commit()
     statuses = ("open", "done") if include_done else ("open",)
     stmt = (
@@ -172,6 +180,37 @@ def get_task(
     task_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
 ) -> TaskOut:
     return TaskOut.from_task(owned_task(session, user, task_id))
+
+
+@router.get("/tasks/{task_id}/email", response_model=EmailOut)
+def task_email(
+    task_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    gmail: GmailApi = Depends(get_gmail_api),
+) -> EmailOut:
+    """The full email behind an email task, read from Gmail right now. Nothing is stored: the app
+    never keeps message bodies, so this fetches it again each time it is asked for."""
+    task = owned_task(session, user, task_id)
+    if task.source == "manual" or not task.source_ref:
+        raise HTTPException(404, "This task did not come from an email")
+    try:
+        parsed = parse_message(gmail.get_message(task.source_ref), gmail.get_attachment)
+    except MessageGone as exc:
+        raise HTTPException(410, "That email no longer exists in Gmail") from exc
+    except RateLimited as exc:
+        raise HTTPException(429, "Gmail rate limit reached; try again in a minute") from exc
+    except HttpError as exc:
+        raise HTTPException(502, "Gmail API error") from exc
+    body = parsed.body_text or ""
+    return EmailOut(
+        subject=parsed.subject,
+        sender=parsed.sender,
+        received_at=parsed.received_at,
+        body_text=body[:MAX_EMAIL_CHARS],
+        truncated=len(body) > MAX_EMAIL_CHARS,
+        gmail_url=gmail_fallback(task.source_ref).url,
+    )
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskOut)

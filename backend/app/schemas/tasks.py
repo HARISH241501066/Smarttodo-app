@@ -330,3 +330,14 @@ class SubtaskChange(BaseModel):
     subtask: SubtaskOut | None
     all_subtasks_done: bool
     task: TaskOut
+
+
+class EmailOut(BaseModel):
+    """An email read live from Gmail for the "View full email" window (never stored)."""
+
+    subject: str
+    sender: str
+    received_at: datetime | None
+    body_text: str
+    truncated: bool
+    gmail_url: str

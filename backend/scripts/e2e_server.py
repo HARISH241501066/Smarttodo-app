@@ -158,7 +158,7 @@ def seed(url: str) -> dict:
         task("nptel", "Submit NPTEL Assignment 5", source="nptel", source_name="NPTEL", priority="urgent",
              deadline=now + timedelta(hours=30), confidence=0.9,
              link="https://onlinecourses.nptel.ac.in/noc26_cs10/assignment/5",
-             link_type="action", link_confidence=0.83, source_ref="seed-nptel")  # fmt: skip
+             link_type="action", link_confidence=0.83, source_ref="src03")  # fmt: skip
         task("form", "Fill the hackathon registration form", source="gform", priority="important",
              deadline=now + timedelta(days=5), confidence=0.9, link="https://forms.gle/Hackathon26",
              link_type="action", link_confidence=0.9, source_ref="seed-form")  # fmt: skip

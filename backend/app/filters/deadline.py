@@ -61,6 +61,7 @@ class DeadlineResult:
     confidence: float
     candidates: int = 0  # how many different deadlines were found
     latest: datetime | None = None  # the latest of them (== deadline when there is one)
+    expired: datetime | None = None  # latest deadline already past (only set when none is upcoming)
 
 
 def _time_of_day(snippet: str, date_end: int) -> tuple[int, int] | None:
@@ -113,6 +114,7 @@ def extract_deadline(
         "RELATIVE_BASE": received,
     }
     found: set[datetime] = set()
+    past: set[datetime] = set()
     for snippet in _snippets(text):
         m = DATE_RE.search(snippet)  # only the date expression right after the cue
         if not m:
@@ -129,8 +131,10 @@ def extract_deadline(
         deadline = parsed.astimezone(UTC)
         if deadline > now:
             found.add(deadline)
+        else:
+            past.add(deadline)
     if not found:
-        return DeadlineResult(None, CONF_NONE, 0)
+        return DeadlineResult(None, CONF_NONE, 0, None, max(past) if past else None)
     return DeadlineResult(
         min(found), CONF_ONE if len(found) == 1 else CONF_MANY, len(found), max(found)
     )

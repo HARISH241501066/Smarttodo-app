@@ -201,3 +201,25 @@ def test_reasons_never_quote_the_message():
         msg = message(name)
         assert msg.subject not in got.reason
         assert all(msg.body_text[:40] not in r for r in got.reasons)
+
+
+def test_a_source_mail_whose_close_date_has_passed_keeps_it_as_overdue():
+    """Digii "Closes on : 10 Oct 2026 | 11:59 PM" read on 11 Oct is overdue, not "No deadline"."""
+    msg = message(name_of("task_digii_new_quiz_table"))
+    later = datetime(2026, 10, 25, 6, 0, tzinfo=UTC)  # after the fixture's 18 Oct close date
+    got = decide(
+        msg, sources=SOURCES, keywords=KEYWORDS, block_senders=[], require_deadline=True,
+        received_or_now=later, now=later,
+    )  # fmt: skip
+    assert got.kind == TASK
+    assert got.deadline.deadline.isoformat() == "2026-10-18T18:29:00+00:00"
+
+
+def test_a_keyword_mail_with_only_a_past_date_is_still_dropped():
+    msg = message(name_of("task_hackathon_unknown"))
+    later = datetime(2026, 12, 1, 6, 0, tzinfo=UTC)
+    got = decide(
+        msg, sources=SOURCES, keywords=KEYWORDS, block_senders=[], require_deadline=False,
+        received_or_now=later, now=later,
+    )  # fmt: skip
+    assert got.kind == DROP
