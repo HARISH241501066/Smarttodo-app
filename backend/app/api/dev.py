@@ -77,7 +77,7 @@ self.addEventListener('notificationclick', event => {
 
 
 def _require_enabled() -> None:
-    if not get_settings().dev_push_test_page:
+    if not get_settings().dev_page_enabled:
         raise HTTPException(404, "Not Found")
 
 

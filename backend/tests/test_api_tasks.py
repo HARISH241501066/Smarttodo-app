@@ -129,7 +129,7 @@ def test_deadline_within_48h_makes_a_new_task_urgent(client_factory, uid):
         {},
         {"title": ""},
         {"title": "   "},
-        {"title": "x" * 501},
+        {"title": "x" * 301},
         {"title": "t", "priority": "critical"},
         {"title": "t", "deadline": "not a date"},
         {"title": "t", "notes": "n" * 5001},
@@ -591,7 +591,7 @@ def test_a_source_may_have_no_senders_yet(api):
         {"sources": [{"name": "X", "type": "custom", "senders": [""]}]},
         {
             "sources": [
-                {"name": "X", "type": "custom", "senders": [f"d{i}.test" for i in range(201)]}
+                {"name": "X", "type": "custom", "senders": [f"d{i}.test" for i in range(101)]}
             ]
         },
         {
@@ -600,11 +600,11 @@ def test_a_source_may_have_no_senders_yet(api):
                 {"name": "same", "type": "nptel", "senders": []},
             ]
         },
-        {"sources": [{"name": f"S{i}", "type": "custom", "senders": []} for i in range(21)]},
+        {"sources": [{"name": f"S{i}", "type": "custom", "senders": []} for i in range(51)]},
         {"watch_keywords": ["a) OR (from:boss@work.test"]},
         {"watch_keywords": ["in:inbox"]},
         {"watch_keywords": [""]},
-        {"watch_keywords": [f"k{i}" for i in range(51)]},
+        {"watch_keywords": [f"k{i}" for i in range(21)]},
         {"block_senders": ["-bad"]},
         {"block_senders": "linkedin.com"},
         {"digest_hour": 24},

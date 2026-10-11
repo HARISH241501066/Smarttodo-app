@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db import get_session
+from app.hardening import rate_limit
 from app.models import Task, UsedActionToken, User
 from app.notify.calendar import calendar_for, try_sync_task_event
 from app.notify.tokens import DoneToken, TokenError, TokenExpired, read_done_token
@@ -96,7 +97,9 @@ def _message_page(res: Resolution):
     )
 
 
-@router.get("/action/done", response_class=HTMLResponse)
+@router.get(
+    "/action/done", response_class=HTMLResponse, dependencies=[Depends(rate_limit("mark-done"))]
+)
 def confirm_page(t: str | None = None, session: Session = Depends(get_session)):
     """Shows what will happen. Read-only: never marks anything done."""
     res = _resolve(session, t)
@@ -109,7 +112,9 @@ def confirm_page(t: str | None = None, session: Session = Depends(get_session)):
     )
 
 
-@router.post("/action/done", response_class=HTMLResponse)
+@router.post(
+    "/action/done", response_class=HTMLResponse, dependencies=[Depends(rate_limit("mark-done"))]
+)
 def mark_done(t: str | None = None, session: Session = Depends(get_session)):
     res = _resolve(session, t)
     if res.state != "ready":

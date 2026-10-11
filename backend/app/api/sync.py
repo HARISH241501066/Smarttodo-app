@@ -8,6 +8,7 @@ from app.auth.credentials import load_credentials
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.filters.pipeline import make_filter_sink
+from app.hardening import rate_limit
 from app.ingest.gmail import GmailApi, GoogleGmailApi, RateLimited
 from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
@@ -22,7 +23,7 @@ def get_gmail_api(
     return GoogleGmailApi.from_credentials(load_credentials(user, session))
 
 
-@router.post("/sync/run")
+@router.post("/sync/run", dependencies=[Depends(rate_limit("sync"))])
 def sync_run(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),

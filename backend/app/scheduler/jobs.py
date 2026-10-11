@@ -18,6 +18,7 @@ from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
 from app.notify.calendar import reconcile_calendar
 from app.priority import complete_expired_email_tasks, recompute_priorities
+from app.retention import purge_completed
 from app.scheduler.digest import run_digest
 from app.scheduler.dispatcher import dispatch_due
 
@@ -98,9 +99,17 @@ def poll_sync_job() -> None:
 def priority_recompute_job() -> None:
     def work(session: Session) -> None:
         expired = complete_expired_email_tasks(session)
+        notes, bodies = purge_completed(session)  # 30-day retention of finished tasks' text
         changed = recompute_priorities(session)
         session.commit()
-        logger.info("priority recompute: %d upgraded, %d expired completed", changed, expired)
+        logger.info(
+            "priority recompute: %d upgraded, %d expired completed, %d notes and %d notification "
+            "bodies purged",
+            changed,
+            expired,
+            notes,
+            bodies,
+        )
 
     _guarded("priority_recompute", work)
 

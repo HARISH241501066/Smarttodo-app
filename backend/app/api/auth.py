@@ -10,6 +10,7 @@ from app.auth import google
 from app.auth.deps import SESSION_COOKIE, SESSION_SALT
 from app.config import get_settings
 from app.db import get_session
+from app.hardening import rate_limit
 from app.models import User
 from app.security import encrypt_token, sign, unsign
 
@@ -22,10 +23,10 @@ STATE_MAX_AGE = 600
 
 
 def _cookie_kwargs() -> dict:
-    return {"httponly": True, "samesite": "lax", "secure": get_settings().cookie_secure}
+    return {"httponly": True, "samesite": "lax", "secure": get_settings().secure_cookies}
 
 
-@router.get("/auth/login")
+@router.get("/auth/login", dependencies=[Depends(rate_limit("auth"))])
 def login() -> RedirectResponse:
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(64)  # PKCE code verifier (86 chars)
@@ -39,7 +40,7 @@ def login() -> RedirectResponse:
     return response
 
 
-@router.get("/auth/callback")
+@router.get("/auth/callback", dependencies=[Depends(rate_limit("auth"))])
 def callback(
     request: Request,
     code: str | None = None,
@@ -98,7 +99,7 @@ def callback(
     return response
 
 
-@router.post("/auth/logout")
+@router.post("/auth/logout", dependencies=[Depends(rate_limit("auth"))])
 def logout() -> JSONResponse:
     response = JSONResponse({"ok": True})
     response.delete_cookie(SESSION_COOKIE)

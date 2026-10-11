@@ -19,6 +19,7 @@ from tests.gmail_fakes import FakeGmailApi
 FIXTURES = Path(__file__).parent / "fixtures" / "source_emails"
 MANIFEST = json.loads((FIXTURES / "expected.manifest").read_text())
 NOW = datetime(2026, 10, 11, 6, 0, tzinfo=UTC)
+CONFIRM = {"confirm": "REBUILD"}
 
 
 def raw_fixtures() -> dict[str, dict]:
@@ -325,7 +326,7 @@ def use_gmail():
 
 def test_rebuild_requires_login(client_factory):
     client = client_factory()
-    assert client.post("/sources/rebuild").status_code == 401
+    assert client.post("/sources/rebuild", json=CONFIRM).status_code == 401
     assert client.get("/sources/rebuild/preview").status_code == 401
     assert client.get("/sources/rebuild/status").status_code == 401
 
@@ -348,7 +349,7 @@ def test_rebuild_endpoint_runs_reports_counts_and_is_idempotent(api, engine, uid
     assert api.get("/sources/rebuild/status").json() == {"state": "idle"}
     manual = api.post("/tasks", json={"title": "mine"}).json()
 
-    first = api.post("/sources/rebuild?wait=true")
+    first = api.post("/sources/rebuild?wait=true", json=CONFIRM)
     assert first.status_code == 200
     body = first.json()
     assert body["state"] == "done"
@@ -358,7 +359,7 @@ def test_rebuild_endpoint_runs_reports_counts_and_is_idempotent(api, engine, uid
     assert result["tasks_by_source"]["Digii"] == 1 and result["tasks_by_source"]["NPTEL"] >= 1
     assert api.get("/sources/rebuild/status").json()["state"] == "done"
 
-    second = api.post("/sources/rebuild?wait=true").json()["result"]
+    second = api.post("/sources/rebuild?wait=true", json=CONFIRM).json()["result"]
     assert (second["created"], second["removed"]) == (0, 0)
 
     ids = {t["id"] for t in api.get("/tasks").json()}
@@ -367,7 +368,7 @@ def test_rebuild_endpoint_runs_reports_counts_and_is_idempotent(api, engine, uid
 
 def test_rebuild_endpoint_returns_202_and_finishes_in_the_background(api, uid, use_gmail):
     use_gmail(FakeGmailApi({}))
-    resp = api.post("/sources/rebuild")
+    resp = api.post("/sources/rebuild", json=CONFIRM)
     assert resp.status_code == 202
     assert resp.json()["state"] in ("running", "done")
     for _ in range(100):  # wait for the background run so it cannot outlive the test database

@@ -55,6 +55,12 @@ def _warm_fastapi_schemas():
 @pytest.fixture(autouse=True)
 def _test_env(monkeypatch):
     """Tests never depend on (or touch) the real Google credentials or keys in .env."""
+    from app.hardening import reset_rate_limits
+
+    reset_rate_limits()
+    from app import rebuild
+
+    rebuild._status.clear()  # a previous test's finished rebuild must not look like this one's
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
     monkeypatch.setenv("FERNET_KEY", Fernet.generate_key().decode())

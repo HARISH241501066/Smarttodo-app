@@ -252,7 +252,7 @@ def test_tag_suggestions_come_from_tags_in_use(api, api_b):
     assert api.get("/tags").json() == ["Uni", "Home"]
     tid = make(api, "f", tag="Work")["id"]
     assert api.patch(f"/tasks/{tid}", json={"tag": None}).json()["tag"] is None
-    assert api.patch(f"/tasks/{tid}", json={"tag": "x" * 41}).status_code == 422
+    assert api.patch(f"/tasks/{tid}", json={"tag": "x" * 51}).status_code == 422
     assert make(api, "g", tag="   ")["tag"] is None
 
 

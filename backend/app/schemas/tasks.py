@@ -12,7 +12,7 @@ from app.sources import MAX_NAME_CHARS
 
 IST = ZoneInfo("Asia/Kolkata")
 MAX_LINK_CHARS = 2000
-MAX_LIST_ENTRIES = 200
+MAX_LIST_ENTRIES = 100
 
 Priority = Literal["urgent", "important", "regular"]
 Status = Literal["open", "done", "needs_review", "dismissed"]
@@ -148,7 +148,7 @@ def _clean_title(value: str | None) -> str | None:
     return value
 
 
-MAX_TAG_CHARS = 40
+MAX_TAG_CHARS = 50
 MAX_SUBTASKS = 100
 
 
@@ -162,7 +162,7 @@ def _clean_tag(value: str | None) -> str | None:
 
 
 class TaskCreate(BaseModel):
-    title: str = Field(max_length=500)
+    title: str = Field(max_length=300)
     tag: str | None = None
     reminders_enabled: bool = True
     subtasks: list[str] = Field(default_factory=list, max_length=MAX_SUBTASKS)
@@ -184,7 +184,7 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     """Only the fields that are sent change. null clears deadline, notes and link."""
 
-    title: str | None = Field(default=None, max_length=500)
+    title: str | None = Field(default=None, max_length=300)
     notes: str | None = Field(default=None, max_length=5000)
     deadline: datetime | None = None
     priority: Priority | None = None
@@ -200,7 +200,7 @@ class TaskUpdate(BaseModel):
 
 
 class ReviewConfirm(BaseModel):
-    title: str | None = Field(default=None, max_length=500)
+    title: str | None = Field(default=None, max_length=300)
     deadline: datetime | None = None
     link: str | None = None
 
@@ -249,8 +249,8 @@ def _sender_list(values: list[str] | None) -> list[str] | None:
     return out
 
 
-MAX_SOURCES = 20
-MAX_KEYWORDS = 50
+MAX_SOURCES = 50
+MAX_KEYWORDS = 20
 
 
 class SourceBody(BaseModel):

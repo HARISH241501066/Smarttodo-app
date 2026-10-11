@@ -1183,6 +1183,46 @@ test("folders at 380px: a drawer opens from the header, lists folders, and close
   await context.close();
 });
 
+// ------------------------------------------------------------------ security
+
+test("security: every page carries the security headers", async ({ app }) => {
+  for (const path of ["/", "/email", "/deadlines", "/settings", "/login"]) {
+    const res = await app.request.get(path);
+    const h = res.headers();
+    expect(h["x-content-type-options"], path).toBe("nosniff");
+    expect(h["referrer-policy"], path).toBe("no-referrer");
+    expect(h["x-frame-options"], path).toBe("DENY");
+    const csp = h["content-security-policy"];
+    expect(csp, path).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).not.toMatch(/script-src[^;]*https?:/); // no script from another site
+  }
+  // the API answers carry them too (through the same-origin proxy)
+  const api = await app.request.get("/api/tasks");
+  expect(api.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(api.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+});
+
+test("security: an email subject full of HTML is shown as plain text and nothing runs", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  const hostile = card(app, "hostile subject");
+  await expect(hostile.locator("h3")).toHaveText("<script>window.__xss = 1</script><b>bold</b> hostile subject");
+  await expect(hostile.locator("h3 b, h3 script")).toHaveCount(0);
+  expect(await app.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+  // and the same text on the Deadlines page
+  await app.goto("/deadlines");
+  await expect(app.getByTestId("deadline-row").filter({ hasText: "hostile subject" }).locator("b, script")).toHaveCount(0);
+  expect(await app.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
+});
+
+test("security: the browser refuses a cross-site POST to the API", async ({ app }) => {
+  const res = await app.request.post("/api/tasks", { data: { title: "csrf" }, headers: { Origin: "https://evil.example" } });
+  expect(res.status()).toBe(403);
+  expect((await api<ApiTask[]>(app, "/tasks?limit=500")).some((t) => t.title === "csrf")).toBe(false);
+});
+
 // ------------------------------------------------------------------ rebuild from sources
 
 test("rebuild from sources: asks first, reports counts, keeps the user's own tasks, and is repeatable", async ({ app }) => {
@@ -1209,7 +1249,17 @@ test("rebuild from sources: asks first, reports counts, keeps the user's own tas
 
   await button.click();
   await app.getByTestId("rebuild-preview").getByText("tasks (added by you").waitFor();
-  await app.getByRole("dialog", { name: "Rebuild from sources?" }).getByRole("button", { name: "Rebuild now" }).click();
+  const confirmRebuild = async () => {
+    const dlg = app.getByRole("dialog", { name: "Rebuild from sources?" });
+    await dlg.getByText("tasks (added by you").waitFor();
+    const go = dlg.getByRole("button", { name: "Rebuild now" });
+    await expect(go).toBeDisabled(); // nothing happens until the word is typed
+    await dlg.getByLabel("Type REBUILD to confirm").fill("rebuild");
+    await expect(go).toBeDisabled();
+    await dlg.getByLabel("Type REBUILD to confirm").fill("REBUILD");
+    await go.click();
+  };
+  await confirmRebuild();
   const done = app.getByRole("dialog", { name: "Rebuild finished" });
   await expect(done.getByTestId("rebuild-summary")).toContainText(/Removed \d+, added \d+, kept \d+\./);
   await expect(done.getByTestId("rebuild-summary")).toContainText("Open tasks by source:");
@@ -1230,8 +1280,7 @@ test("rebuild from sources: asks first, reports counts, keeps the user's own tas
   // doing it again changes nothing
   const before = (await api<ApiTask[]>(app, "/tasks?limit=500")).map((t) => t.id).sort();
   await app.getByRole("button", { name: "Rebuild from sources" }).click();
-  await app.getByTestId("rebuild-preview").getByText("tasks (added by you").waitFor();
-  await app.getByRole("dialog", { name: "Rebuild from sources?" }).getByRole("button", { name: "Rebuild now" }).click();
+  await confirmRebuild();
   await expect(app.getByRole("dialog", { name: "Rebuild finished" }).getByTestId("rebuild-summary")).toContainText(
     /Removed 0, added 0, kept \d+\./,
   );

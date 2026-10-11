@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 OPEN_CONFIDENCE = CONF_MANY  # a deadline found with at least this confidence is "sure enough"
 MATCH_RATIO = 85  # rapidfuzz ratio must be strictly greater
 MATCH_CANDIDATES = 300
-TITLE_CHARS = 500
+TITLE_CHARS = 300
 
 _PREFIX_RE = re.compile(r"^\s*(?:(?:re|fwd?)\s*:\s*)+", re.IGNORECASE)
 # Words that differ between an original notice and its reminder/extension.

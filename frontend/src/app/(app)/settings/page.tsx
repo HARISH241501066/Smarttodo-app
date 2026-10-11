@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/components/AppProvider";
 import { ChipsEditor } from "@/components/ChipsEditor";
 import { useToast } from "@/components/toast";
-import { Button, ConfirmDialog, ErrorNote, Field, Modal, Spinner, inputClass } from "@/components/ui";
+import { Button, ErrorNote, Field, Modal, Spinner, inputClass } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { disablePush, enablePush, getPushState, type PushState } from "@/lib/push";
 import {
@@ -86,6 +86,7 @@ export default function SettingsPage() {
   const [rebuildOpen, setRebuildOpen] = useState(false);
   const [rebuildPreview, setRebuildPreview] = useState<RebuildPreview | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
+  const [rebuildWord, setRebuildWord] = useState("");
   const [rebuildError, setRebuildError] = useState<string | null>(null);
   const [rebuildResult, setRebuildResult] = useState<RebuildResult | null>(null);
 
@@ -161,6 +162,7 @@ export default function SettingsPage() {
     setRebuildError(null);
     setRebuildResult(null);
     setRebuildPreview(null);
+    setRebuildWord("");
     setRebuildOpen(true);
     try {
       setRebuildPreview(await api<RebuildPreview>("/sources/rebuild/preview"));
@@ -173,7 +175,7 @@ export default function SettingsPage() {
     setRebuilding(true);
     setRebuildError(null);
     try {
-      let status = await api<RebuildStatus>("/sources/rebuild", { method: "POST" });
+      let status = await api<RebuildStatus>("/sources/rebuild", { method: "POST", json: { confirm: "REBUILD" } });
       while (status.state === "running") {
         await sleep(POLL_MS);
         status = await api<RebuildStatus>("/sources/rebuild/status");
@@ -228,7 +230,7 @@ export default function SettingsPage() {
     setDeleting(true);
     setDeleteError(null);
     try {
-      await api("/me", { method: "DELETE" });
+      await api("/me/delete", { method: "POST", json: { confirm: "DELETE" } });
       router.replace("/login");
     } catch (err) {
       setDeleteError(errorMessage(err));
@@ -481,10 +483,9 @@ export default function SettingsPage() {
             </div>
           </Modal>
         ) : (
-          <ConfirmDialog
-            title="Rebuild from sources?"
-            message={
-              <div className="space-y-2" data-testid="rebuild-preview">
+          <Modal title="Rebuild from sources?" onClose={() => (rebuilding ? undefined : setRebuildOpen(false))}>
+            <div className="text-sm text-muted">
+              {<div className="space-y-2" data-testid="rebuild-preview">
                 {rebuildError ? <ErrorNote>{rebuildError}</ErrorNote> : null}
                 {rebuildPreview ? (
                   <>
@@ -513,14 +514,32 @@ export default function SettingsPage() {
                 ) : rebuildError ? null : (
                   <Spinner label="Checking what would change" />
                 )}
-              </div>
-            }
-            confirmLabel="Rebuild now"
-            danger
-            busy={rebuilding || (!rebuildPreview && !rebuildError)}
-            onConfirm={() => void runRebuild()}
-            onCancel={() => (rebuilding ? undefined : setRebuildOpen(false))}
-          />
+              </div>}
+            </div>
+            <label className="mt-4 block text-sm font-semibold" htmlFor="rebuild-confirm">
+              Type <strong className="text-fg">REBUILD</strong> to confirm
+            </label>
+            <input
+              id="rebuild-confirm"
+              className={`${inputClass} mt-1`}
+              value={rebuildWord}
+              onChange={(e) => setRebuildWord(e.target.value)}
+              autoCapitalize="characters"
+              autoComplete="off"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <Button onClick={() => setRebuildOpen(false)} disabled={rebuilding}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                disabled={rebuildWord !== "REBUILD" || rebuilding || !rebuildPreview}
+                onClick={() => void runRebuild()}
+              >
+                {rebuilding ? "Working..." : "Rebuild now"}
+              </Button>
+            </div>
+          </Modal>
         )
       ) : null}
 

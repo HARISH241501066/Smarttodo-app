@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import get_current_user
 from app.config import get_settings
 from app.db import get_session
+from app.hardening import rate_limit
 from app.models import Notification, PushSubscription, User
 from app.notify.channels import Outgoing, Sender
 from app.notify.push import PushSender
@@ -25,7 +26,9 @@ def public_key() -> dict[str, str]:
     return {"public_key": key}
 
 
-@router.post("/push/subscribe", status_code=201)
+@router.post(
+    "/push/subscribe", status_code=201, dependencies=[Depends(rate_limit("push-subscribe"))]
+)
 def subscribe(
     body: PushSubscribe,
     user: User = Depends(get_current_user),

@@ -94,7 +94,7 @@ export function TaskModal({ mode, task, onClose, onSubmit }: Props) {
           <input
             className={inputClass}
             value={title}
-            maxLength={500}
+            maxLength={300}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="What needs doing?"
             required
@@ -142,7 +142,7 @@ export function TaskModal({ mode, task, onClose, onSubmit }: Props) {
             <input
               className={inputClass}
               value={tag}
-              maxLength={40}
+              maxLength={50}
               list={tagListId}
               onChange={(e) => setTag(e.target.value)}
               placeholder="e.g. College"

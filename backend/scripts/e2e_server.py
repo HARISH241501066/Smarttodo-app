@@ -169,6 +169,11 @@ def seed(url: str) -> dict:
         task("digii", "Digii quiz without a date", source="digii", source_name="Digii",
              priority="important", link="https://mail.google.com/mail/u/0/#all/seeddigii",
              link_type="gmail", link_confidence=0.0, source_ref="seeddigii")  # fmt: skip
+        # Email text is attacker-controlled: it must be shown as plain text, never as markup.
+        task("xss", "<script>window.__xss = 1</script><b>bold</b> hostile subject", source="nptel",
+             source_name="NPTEL", priority="regular", confidence=0.9, source_ref="seed-xss",
+             link="https://mail.google.com/mail/u/0/#all/seedxss", link_type="gmail",
+             link_confidence=0.0)  # fmt: skip
         task("edit", "Edit me", source="manual", priority="regular", confidence=1.0,
              user_confirmed=True)  # fmt: skip
         task("delete", "Delete me", source="manual", priority="regular", confidence=1.0,

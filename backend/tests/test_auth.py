@@ -325,10 +325,10 @@ def test_delete_me_removes_user_and_all_related_rows(client, monkeypatch, engine
 
     with respx.mock(assert_all_called=True) as mock:
         route = mock.post(REVOKE_URL).respond(200)
-        resp = client.delete("/me")
+        resp = client.post("/me/delete", json={"confirm": "DELETE"})
 
     assert resp.status_code == 200
-    assert resp.json() == {"deleted": True, "google_revoked": True}
+    assert resp.json() == {"deleted": True, "google_revoked": True, "calendar_events_deleted": 0}
     # Google was asked to revoke the real (decrypted) token
     assert parse_qs(route.calls.last.request.content.decode())["token"] == [PLAIN_REFRESH]
 
@@ -353,14 +353,14 @@ def test_delete_me_still_deletes_when_google_revoke_fails(client, monkeypatch, e
             route.mock(side_effect=httpx.ConnectError("down"))
         else:
             route.respond(400)
-        resp = client.delete("/me")
+        resp = client.post("/me/delete", json={"confirm": "DELETE"})
     assert resp.status_code == 200
-    assert resp.json() == {"deleted": True, "google_revoked": False}
+    assert resp.json() == {"deleted": True, "google_revoked": False, "calendar_events_deleted": 0}
     assert _count(engine, "users") == 0
 
 
 def test_delete_me_requires_login(client):
-    assert client.delete("/me").status_code == 401
+    assert client.post("/me/delete", json={"confirm": "DELETE"}).status_code == 401
 
 
 # ---------- credential loader ----------
