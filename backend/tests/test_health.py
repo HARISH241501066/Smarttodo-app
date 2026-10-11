@@ -10,7 +10,7 @@ client = TestClient(app)
 def test_health_ok():
     r = client.get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "db": "ok"}
+    assert r.json() == {"status": "ok", "db": "ok", "scheduler": "disabled"}
 
 
 def test_health_reports_db_down(monkeypatch):

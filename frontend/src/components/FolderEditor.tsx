@@ -140,7 +140,7 @@ export function FolderEditor({ folder, initial, onClose, onSaved }: Props) {
       await refreshFolders();
       toast.show(folder ? "Folder updated" : "Folder created");
       onSaved(saved);
-      if (!folder) router.push(`/folders/${saved.id}`); // a new folder opens straight away
+      if (!folder) router.push(`/folder?id=${saved.id}`); // a new folder opens straight away
     } catch (err) {
       setError(errorMessage(err));
       setSaving(false);

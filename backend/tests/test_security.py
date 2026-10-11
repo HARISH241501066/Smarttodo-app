@@ -856,8 +856,8 @@ def test_in_production_docs_and_the_dev_push_page_are_off(monkeypatch):
     prod = TestClient(create_app())
     for path in ("/docs", "/redoc", "/openapi.json", "/dev/push-test", "/dev/sw.js"):
         assert prod.get(path).status_code == 404, path
-    assert prod.get("/health").status_code == 200
-    assert "strict-transport-security" in prod.get("/health").headers
+    assert prod.get("/nothing-here").status_code == 404
+    assert "strict-transport-security" in prod.get("/nothing-here").headers
 
 
 def test_outside_production_docs_exist_and_the_dev_page_obeys_its_flag(monkeypatch):

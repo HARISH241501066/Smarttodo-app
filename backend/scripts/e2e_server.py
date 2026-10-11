@@ -5,7 +5,7 @@
 * seeds one test user with tasks, notifications and quarantined/needs-review items,
 * fakes Gmail (for "Rescue") and Web Push (for "Send test notification"),
 * writes a signed session cookie for that user to frontend/e2e/.state.json,
-* serves the real FastAPI app on E2E_BACKEND_PORT (default 8001),
+* serves the real FastAPI app and the exported dashboard on E2E_PORT (default 3100),
 * drops the database on exit (and any left behind by a run that was killed).
 
     backend\\.venv\\Scripts\\python.exe backend\\scripts\\e2e_server.py
@@ -35,8 +35,10 @@ import base64  # noqa: E402
 
 from app.config import get_settings  # noqa: E402
 
-PORT = int(os.environ.get("E2E_BACKEND_PORT", "8001"))
-FRONTEND_PORT = int(os.environ.get("E2E_FRONTEND_PORT", "3100"))
+# One server, like production: the API under /api and the exported dashboard, same origin.
+PORT = int(os.environ.get("E2E_PORT", "3100"))
+FRONTEND_PORT = PORT
+DASHBOARD = BACKEND.parent / "frontend" / "out"
 STATE_FILE = Path(os.environ.get("E2E_STATE", BACKEND.parent / "frontend" / "e2e" / ".state.json"))
 DB_PREFIX = "smart_todo_e2e_"
 
@@ -99,6 +101,7 @@ def main() -> None:
         VAPID_PUBLIC_KEY=vapid_public,
         VAPID_PRIVATE_KEY=vapid_private,
         VAPID_SUBJECT="mailto:e2e@example.test",
+        FRONTEND_DIST=str(DASHBOARD),
         FRONTEND_URL=f"http://localhost:{FRONTEND_PORT}",
         PUBLIC_BASE_URL=f"http://localhost:{FRONTEND_PORT}",
     )

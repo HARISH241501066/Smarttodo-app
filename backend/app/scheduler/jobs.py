@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.auth.credentials import ReauthRequired, load_credentials
 from app.db import get_engine
 from app.filters.pipeline import make_filter_sink
+from app.health import beat
 from app.ingest.gmail import GmailApi, GoogleGmailApi, RateLimited
 from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
@@ -82,7 +83,11 @@ def _guarded(name: str, work: Callable[[Session], object]) -> None:
 
 
 def dispatch_job() -> None:
-    _guarded("dispatch", lambda s: dispatch_due(s))
+    def work(session: Session) -> None:
+        beat(session)  # "the scheduler is alive" first, so a failing dispatch still shows as alive
+        dispatch_due(session)
+
+    _guarded("dispatch", work)
 
 
 def poll_sync_job() -> None:

@@ -152,6 +152,15 @@ class FolderPin(Base):
     )
 
 
+class Heartbeat(Base):
+    """ "Still running" markers. The dispatcher writes one every minute; /health reads it."""
+
+    __tablename__ = "heartbeats"
+
+    name: Mapped[str] = mapped_column(String(64), primary_key=True)
+    last_beat_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Subtask(Base):
     """A checklist item on a task (manual or email). Deleted with its task."""
 

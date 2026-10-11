@@ -1,7 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { useApp } from "@/components/AppProvider";
 import { FolderEditor } from "@/components/FolderEditor";
 import { TaskCard } from "@/components/TaskCard";
@@ -14,8 +14,18 @@ import { useTaskActions } from "@/lib/useTaskActions";
 
 const HEADING: Record<string, string> = { overdue: "text-danger", today: "text-warn" };
 
+// A folder is /folder?id=3 (not /folder/3): the dashboard is exported as static files, and a
+// folder's number is only known at run time.
 export default function FolderPage() {
-  const id = Number(useParams<{ id: string }>().id);
+  return (
+    <Suspense fallback={<Spinner />}>
+      <Folder />
+    </Suspense>
+  );
+}
+
+function Folder() {
+  const id = Number(useSearchParams().get("id"));
   const router = useRouter();
   const toast = useToast();
   const now = useNow();

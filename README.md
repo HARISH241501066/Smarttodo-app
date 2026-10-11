@@ -24,12 +24,13 @@ Sign in, then `POST /sync/run` (with the session cookie). The first run backfill
 later runs are incremental. Gmail rate limits are handled by backing off and deferring the rest.
 
 ## Dashboard (frontend)
-Next.js (App Router, TypeScript, Tailwind); an installable PWA. It proxies `/api/*` to the backend, so the
-session cookie stays same-origin.
+Next.js (App Router, TypeScript, Tailwind); an installable PWA. `npm run build` exports it as static
+files (`frontend/out`) which FastAPI serves from the same address as the API (see Deployment), so the
+session cookie is same-origin. During development `npm run dev` proxies `/api/*` to the backend.
 
     cd frontend && npm install
     npm run dev            # http://localhost:3000   (BACKEND_URL defaults to http://127.0.0.1:8000)
-    npm run build && npm start
+    npm run build          # static export into frontend/out
 
 To sign in through the dashboard, add to `.env` (then restart the backend):
 
@@ -41,12 +42,12 @@ Tests:
 
     cd frontend
     npm test               # unit tests (dates, request bodies)
-    npm run e2e            # real Chromium against a throwaway backend (temporary database,
+    npm run e2e            # real Chromium against a throwaway backend serving the exported dashboard (temporary database,
                            # seeded data, fake Gmail/push); never touches your data
     npm run icons          # regenerate the PWA icons
 
-Web Push needs HTTPS or `localhost`. `PUBLIC_BASE_URL` / `FRONTEND_URL` must become the production
-HTTPS URLs in Module 14.
+Web Push needs HTTPS or `localhost`. `PUBLIC_BASE_URL` / `FRONTEND_URL` must be the production HTTPS
+address (see Deployment).
 
 ## Privacy
 
@@ -118,3 +119,112 @@ ids, suspicious emails, tokens). You can also revoke access at
   prerendered, so a per-request nonce is not available. All other directives are strict. The
   rate limiter is per process and in memory. `npm audit` lists one dev-only advisory (`braces`,
   pulled in by the lint tooling, no patched release exists); `npm audit --omit=dev` is clean.
+
+## Deployment (Render + Neon, free)
+
+One Render web service runs everything: the FastAPI API, the background scheduler and the dashboard
+(exported as static files and served by FastAPI from the same address, so there is one origin and
+one cookie). The database is a free Neon Postgres. UptimeRobot pings `/health` so the free service
+does not sleep and you get an email if it goes down.
+
+```
+browser / phone ──https──> Render web service (Docker, ONE uvicorn worker)
+                              ├─ /            dashboard pages (static files)
+                              ├─ /api/...     the API
+                              ├─ /auth/...    Google sign-in (callback address)
+                              ├─ /action/...  "Mark as done" page from emails
+                              ├─ /health      200 only if the DB answers and the scheduler beats
+                              └─ scheduler    reminders, 15-minute Gmail sync, digest
+                                   │
+                                   └──────────> Neon Postgres (everything is stored here)
+```
+
+### How to deploy
+
+1. Create the Google project and OAuth client, the Neon database, and the Render service by
+   following the steps your assistant walks you through (they are the manual steps of the
+   deployment module; the names of the variables are in the table below).
+2. Render builds the `Dockerfile` (stage 1 exports the dashboard with Node, stage 2 is the slim
+   Python image). On every start it runs `alembic upgrade head` and then
+   `uvicorn app.main:app --workers 1`.
+3. Check `https://<app-address>/health` returns `{"status":"ok","db":"ok","scheduler":"ok"}`.
+4. Add the UptimeRobot monitor (HTTP(s), `/health`, every 5 minutes, email alerts to you).
+
+Build and run the image locally (needs Docker and a Postgres you can reach):
+
+    docker build -t smart-todo .
+    docker run --rm -p 10000:10000 --env-file .env -e ENV=production -e PORT=10000 smart-todo
+
+Run it without Docker (the dashboard is built once, then FastAPI serves it):
+
+    cd frontend && npm install && npm run build           # writes frontend/out
+    cd ../backend && FRONTEND_DIST=../frontend/out .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000
+    # then open http://localhost:8000 (set FRONTEND_URL and PUBLIC_BASE_URL to that address)
+
+`npm run dev` still works for working on the dashboard (it proxies `/api/*` to the backend).
+
+### Environment variables
+
+Set these in the Render dashboard (**Environment**). `render.yaml` lists them; values for the ones
+marked secret are never stored in the repository.
+
+| Variable | Secret | What it is |
+| --- | --- | --- |
+| `ENV` | no | `production` (already in `render.yaml`): no `/docs`, secure cookies, HSTS, dev page off |
+| `DATABASE_URL` | yes | Neon **direct** connection string (`postgresql://…?sslmode=require`; not the `-pooler` one, because the scheduler lock needs a real connection) |
+| `PUBLIC_BASE_URL` | no | `https://<app-address>`: used in the emails' "Mark as done" links |
+| `FRONTEND_URL` | no | the same `https://<app-address>`: the only origin allowed to make changes (CSRF/CORS) |
+| `GOOGLE_CLIENT_ID` | no | OAuth client id |
+| `GOOGLE_CLIENT_SECRET` | yes | OAuth client secret |
+| `GOOGLE_REDIRECT_URI` | no | `https://<app-address>/auth/callback` (must match the OAuth client exactly) |
+| `POST_LOGIN_REDIRECT` | no | `/` (already in `render.yaml`) |
+| `FERNET_KEY` | yes | encrypts stored Google refresh tokens; comma-separated list for rotation, newest first |
+| `SESSION_SECRET` | yes | signs the session cookie; comma-separated for rotation |
+| `MARK_DONE_SECRET` | yes | signs the email "Mark as done" links (optional; empty = `SESSION_SECRET`) |
+| `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `EMAIL_FROM` | password: yes | escalation emails; `SMTP_PORT` (587) and `SMTP_SECURITY` (starttls) are preset |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | private: yes | Web Push (`python backend/scripts/generate_vapid_keys.py`; subject like `mailto:you@example.com`) |
+| `SCHEDULER_ENABLED` | no | `true` (preset): this process runs reminders and the sync |
+| `PUBSUB_MODE` | no | `off` (preset and forced off in production): the 15-minute poll is the only mode |
+| `CALENDAR_ENABLED`, `SMS_ENABLED`, `DISPLAY_TIMEZONE` | no | `true`, `false`, `Asia/Kolkata` (preset) |
+| `PORT` | no | set by Render |
+| `FRONTEND_DIST` | no | set in the Docker image (`/app/frontend_dist`) |
+
+Generate keys with:
+
+    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"   # FERNET_KEY
+    python -c "import secrets; print(secrets.token_urlsafe(48))"                                  # SESSION_SECRET, MARK_DONE_SECRET
+
+Changing `FERNET_KEY` or `SESSION_SECRET`: put the new value first and keep the old one after a
+comma (`new,old`); nobody is signed out and no stored token breaks. Remove the old one later.
+
+### Things to know about the free plan
+
+* Render's free web service sleeps after 15 minutes without a request. The UptimeRobot ping every
+  5 minutes keeps it awake. It may also restart now and then; the scheduler lock is released and taken
+  again, and the jobs live in the database, so nothing is lost.
+* Only **one** uvicorn worker runs (more would each start a scheduler). A Postgres advisory lock
+  also makes sure that if two instances ever overlap (for example during a deploy) only one of
+  them runs the scheduler and sends reminders.
+* Neon scales to zero when idle; the first query after a pause can take a second or two. The app
+  recycles its connections, so this is invisible apart from that one slow request.
+* The filesystem is temporary. The app writes nothing to disk; everything is in the database.
+
+### Roll back
+
+* **Code:** Render dashboard, **Events** (or **Deploys**), pick the last good deploy, **Rollback**.
+  Migrations only add things, so older code keeps working against the newer database.
+* **A bad migration:** run `alembic downgrade -1` from a shell with `DATABASE_URL` set to the Neon
+  string (most migrations have a downgrade; check the file first), then roll the code back.
+* **A bad environment variable:** change it back in **Environment**; Render restarts the service.
+
+### Runbook
+
+| Symptom | What to check | Fix |
+| --- | --- | --- |
+| "Please sign in again" banner, or no new tasks | The Google login expired or was revoked (`invalid_grant`). Testing-mode OAuth apps expire every 7 days. | Sign in again. Publish the OAuth app **In production** so it stops expiring. The app marks the user and stops syncing for them until they sign in. |
+| No reminder emails, or `SMTP` errors in the logs | Render logs show `smtp` failures; wrong `SMTP_HOST/USERNAME/PASSWORD`, or the provider blocked the login | Fix the SMTP variables (use an app password). Reminders for push and in-app still arrive; failed sends are retried a few times (up to 5 attempts) before the reminder is given up on. |
+| The first page load is slow, or UptimeRobot reports "down" for a minute | The free service was asleep or restarting | Normal after a deploy or a long gap. Check the UptimeRobot interval is 5 minutes. |
+| `/health` returns 503 with `"scheduler":"stale"` | The scheduler has not beaten for 5 minutes: it stopped, or another instance holds the lock | Render dashboard, **Manual Deploy**, **Restart service**. If it persists, check there is exactly one instance and the logs for `another instance already runs the scheduler`. |
+| `/health` returns 503 with `"db":"error"`, or logs show `OperationalError` / `connection` errors | Neon is paused, the string is wrong, or you used the `-pooler` URL | Open the Neon console (it wakes the database), confirm `DATABASE_URL` is the **direct** string with `?sslmode=require`, and restart. |
+| Sign-in fails with `redirect_uri_mismatch` | The OAuth client's redirect URI differs from `GOOGLE_REDIRECT_URI` | They must match exactly, including `https` and no trailing slash. |
+| Changes are refused with 403 "Cross-site request refused" | `FRONTEND_URL` / `PUBLIC_BASE_URL` do not equal the address in the browser | Set both to the exact `https://<app-address>` (or custom domain). |

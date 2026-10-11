@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useApp } from "@/components/AppProvider";
 import { FolderEditor } from "@/components/FolderEditor";
@@ -14,6 +14,7 @@ import { moveItem } from "@/lib/tasks";
  *  reorder. Used in the desktop sidebar and the phone drawer. */
 export function FolderNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const openId = useSearchParams().get("id");
   const { folders, setFolders, refreshFolders } = useApp();
   const toast = useToast();
   const [dragging, setDragging] = useState<number | null>(null);
@@ -49,7 +50,7 @@ export function FolderNav({ onNavigate }: { onNavigate?: () => void }) {
       ) : (
         <ul className="space-y-0.5">
           {folders.map((folder, i) => {
-            const active = pathname === `/folders/${folder.id}`;
+            const active = pathname === "/folder" && openId === String(folder.id);
             return (
               <li
                 key={folder.id}
@@ -62,7 +63,7 @@ export function FolderNav({ onNavigate }: { onNavigate?: () => void }) {
                 className={dragging === i ? "opacity-50" : ""}
               >
                 <Link
-                  href={`/folders/${folder.id}`}
+                  href={`/folder?id=${folder.id}`}
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   className={`group flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-semibold ${

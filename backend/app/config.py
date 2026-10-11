@@ -2,7 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     # ENV=production switches on the production behaviour (see is_production).
     app_env: str = Field("dev", validation_alias=AliasChoices("ENV", "APP_ENV"))
     display_timezone: str = "Asia/Kolkata"
+
+    # The built dashboard (static files) that FastAPI serves. Empty = API only (development).
+    frontend_dist: str = ""
+    # Gmail push (Pub/Sub). Polling every 15 minutes is the only mode in production.
+    pubsub_mode: str = "off"
 
     google_client_id: str = ""
     google_client_secret: SecretStr = SecretStr("")
@@ -56,6 +61,19 @@ class Settings(BaseSettings):
     calendar_enabled: bool = True  # events are only attempted for users who have a Google token
     # Serves /dev/push-test and /dev/sw.js so Web Push can be tried before the dashboard exists.
     dev_push_test_page: bool = False
+
+    @field_validator("database_url")
+    @classmethod
+    def _driver(cls, value: str) -> str:
+        """Hosts (Neon, Render) hand out postgres:// or postgresql:// URLs; we use psycopg 3."""
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix) :]
+        return value
+
+    @property
+    def effective_pubsub_mode(self) -> str:
+        return "off" if self.is_production else self.pubsub_mode
 
     @property
     def is_production(self) -> bool:

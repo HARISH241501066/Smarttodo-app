@@ -1,0 +1,66 @@
+# Render Blueprint: ONE free web service (Docker) that runs the API, the scheduler and the dashboard.
+# Secrets are NOT stored here: every `sync: false` value is typed into the Render dashboard.
+services:
+  - type: web
+    name: smart-todo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # --- fixed settings (not secret) ---
+      - key: ENV
+        value: production
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: PUBSUB_MODE
+        value: "off"
+      - key: CALENDAR_ENABLED
+        value: "true"
+      - key: SMS_ENABLED
+        value: "false"
+      - key: DEV_PUSH_TEST_PAGE
+        value: "false"
+      - key: DISPLAY_TIMEZONE
+        value: Asia/Kolkata
+      - key: POST_LOGIN_REDIRECT
+        value: /
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURITY
+        value: starttls
+      # --- set these in the Render dashboard (sync: false = never read from this file) ---
+      - key: DATABASE_URL          # Neon DIRECT connection string (not the -pooler one)
+        sync: false
+      - key: PUBLIC_BASE_URL       # https://<app-address>
+        sync: false
+      - key: FRONTEND_URL          # the same https://<app-address>
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI   # https://<app-address>/auth/callback
+        sync: false
+      - key: FERNET_KEY
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: MARK_DONE_SECRET      # optional; empty = SESSION_SECRET
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false

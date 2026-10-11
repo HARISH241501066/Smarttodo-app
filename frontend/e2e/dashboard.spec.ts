@@ -17,6 +17,8 @@ const test = base.extend<{ app: Page }>({
     page.on("pageerror", (err) => crashes.push(err.message));
     page.on("console", (msg) => {
       if (msg.type() === "error" && !/Failed to load resource/.test(msg.text())) console.log("[browser]", msg.text());
+      // The page policy lists its inline scripts by hash: anything it refuses is a real bug.
+      if (/Content[- ]Security[- ]Policy|violates the following/i.test(msg.text())) crashes.push(msg.text());
     });
     await provide(page);
     expect(crashes, "uncaught errors in the page").toEqual([]);
@@ -575,7 +577,7 @@ test("push opt-in: enable, send a test notification, see it in the bell, turn it
 
   await app.getByRole("button", { name: "Send test notification" }).click();
   await expect(app.getByRole("status").filter({ hasText: "Test notification sent" })).toBeVisible();
-  const pushes = await (await app.request.get("http://127.0.0.1:8001/__e2e/pushes")).json();
+  const pushes = await (await app.request.get("/__e2e/pushes")).json();
   expect(pushes).toEqual([
     { title: "Test notification", body: "Push notifications are working.", link: "http://localhost:3100" },
   ]);
@@ -1031,7 +1033,7 @@ test("folders: create College (Digii + NPTEL) with a live preview, then edit the
   await expect(dialog.getByTestId("folder-preview")).toHaveText(new RegExp(`^${both.length} tasks? match(es)? right now$`));
   await dialog.getByRole("button", { name: "Create folder" }).click();
 
-  await expect(app).toHaveURL(/\/folders\/\d+$/);
+  await expect(app).toHaveURL(/\/folder\?id=\d+$/);
   await expect(app.getByRole("heading", { name: /College/, level: 1 })).toBeVisible();
   await expect(app.getByTestId("folder-rules")).toContainText("Source: Digii or NPTEL");
   const cards = visibleCards(app);
@@ -1077,7 +1079,7 @@ test("folders: pin a manual task, remove the pin, create a folder from a source 
   await pin.getByRole("button", { name: "Done" }).click();
 
   await folderItem(app, "College").getByRole("link").click();
-  await expect(app).toHaveURL(/\/folders\/\d+$/);
+  await expect(app).toHaveURL(/\/folder\?id=\d+$/);
   const pinned = card(app, title);
   await expect(pinned).toBeVisible(); // it matches no rule, only the pin
   await expect(pinned.getByTestId("folder-reason")).toHaveText("Pinned to this folder");
@@ -1110,7 +1112,7 @@ test("folders: pin a manual task, remove the pin, create a folder from a source 
   await expect(dialog.getByTestId("rule-sources").getByRole("button", { name: "NPTEL", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(dialog.getByTestId("rule-sources").getByRole("button", { name: "Digii", exact: true })).toHaveAttribute("aria-pressed", "false");
   await dialog.getByRole("button", { name: "Create folder" }).click();
-  await expect(app).toHaveURL(/\/folders\/\d+$/);
+  await expect(app).toHaveURL(/\/folder\?id=\d+$/);
   await expect(visibleCards(app).filter({ hasText: "Submit NPTEL Assignment 5" })).toBeVisible();
 });
 
@@ -1168,7 +1170,7 @@ test("folders at 380px: a drawer opens from the header, lists folders, and close
   await page.screenshot({ path: "e2e/screenshots/mobile-380-folders-drawer.png" });
 
   await drawer.getByRole("link", { name: /College/ }).click();
-  await expect(page).toHaveURL(/\/folders\/\d+$/);
+  await expect(page).toHaveURL(/\/folder\?id=\d+$/);
   await expect(drawer).toHaveCount(0); // closed itself
   await expect(page.getByRole("heading", { name: /College/, level: 1 })).toBeVisible();
   const flow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

@@ -26,7 +26,12 @@
     <main>
       <h1>You're offline</h1>
       <p>Your tasks will be back as soon as you reconnect.</p>
-      <button onclick="location.reload()">Try again</button>
+      <button id="retry" type="button">Try again</button>
     </main>
+    <script>
+      document.getElementById("retry").addEventListener("click", function () {
+        location.reload();
+      });
+    </script>
   </body>
 </html>

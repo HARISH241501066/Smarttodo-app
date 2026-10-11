@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { Suspense, useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { useApp } from "@/components/AppProvider";
 import { CalendarIcon, FolderIcon, GearIcon, InboxIcon, SearchIcon, ShieldIcon, UserIcon, XIcon } from "@/components/icons";
 import { FolderNav } from "@/components/FolderNav";
@@ -118,7 +118,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-3 sm:px-4">
         <aside aria-label="Folders sidebar" className="sticky top-16 hidden h-[calc(100dvh-5rem)] w-60 shrink-0 overflow-y-auto pt-4 md:block">
-          <FolderNav />
+          <Suspense fallback={null}>
+            <FolderNav />
+          </Suspense>
         </aside>
         <main className="min-w-0 max-w-4xl flex-1 pb-28 pt-4 sm:pb-10">{children}</main>
       </div>
@@ -146,7 +148,9 @@ export function Shell({ children }: { children: ReactNode }) {
                 <XIcon width={18} height={18} />
               </button>
             </div>
-            <FolderNav onNavigate={() => setDrawer(false)} />
+            <Suspense fallback={null}>
+              <FolderNav onNavigate={() => setDrawer(false)} />
+            </Suspense>
           </div>
         </div>
       ) : null}

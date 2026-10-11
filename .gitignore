@@ -13,3 +13,11 @@ node_modules/
 .next/
 .pgdata-local/
 *.log
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+frontend/out/
+frontend/.next-e2e/
+frontend/e2e/.state.json

@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 // Browser tests run the real production build of the dashboard against a throwaway backend
 // (backend/scripts/e2e_server.py): temporary database, seeded data, fake Gmail and push.
-//   npm run e2e        builds into .next-e2e, starts both servers, runs the tests
+//   npm run e2e        exports the dashboard into out/, starts the backend (which serves it), runs the tests
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
@@ -21,19 +21,11 @@ export default defineConfig({
     channel: "chromium",
     permissions: ["notifications"],
   },
-  webServer: [
-    {
-      command: "node e2e/run-backend.mjs",
-      url: "http://127.0.0.1:8001/health",
-      timeout: 120_000,
-      reuseExistingServer: false,
-    },
-    {
-      command: "npx next start -p 3100",
-      url: "http://localhost:3100/login",
-      timeout: 120_000,
-      reuseExistingServer: false,
-      env: { NEXT_DIST_DIR: ".next-e2e" },
-    },
-  ],
+  // One server, as in production: the backend serves the exported dashboard and the API (/api).
+  webServer: {
+    command: "node e2e/run-backend.mjs",
+    url: "http://localhost:3100/health",
+    timeout: 120_000,
+    reuseExistingServer: false,
+  },
 });

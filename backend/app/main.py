@@ -1,10 +1,12 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from google.auth.exceptions import GoogleAuthError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
     actions,
@@ -25,9 +27,10 @@ from app.api import (
 )
 from app.auth.credentials import ReauthRequired
 from app.config import get_settings
-from app.db import check_db
 from app.hardening import SecurityMiddleware
-from app.scheduler.core import start_scheduler
+from app.health import beat_now, health
+from app.scheduler.core import acquire_scheduler_lock, start_scheduler
+from app.static_site import StaticSite
 
 _app_logger = logging.getLogger("app")
 _app_logger.setLevel(logging.INFO)
@@ -36,27 +39,49 @@ if not _app_logger.handlers:
     _handler.setFormatter(logging.Formatter("%(levelname)s [%(name)s] %(message)s"))
     _app_logger.addHandler(_handler)
 
+API_PREFIX = "/api"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run the background scheduler inside the API process when SCHEDULER_ENABLED is true.
-    Jobs live in Postgres, so they survive a restart."""
-    scheduler = None
+    Jobs live in Postgres, so they survive a restart. Only the process that holds the scheduler's
+    advisory lock runs it, so a second instance can never send reminders twice."""
+    scheduler = lock = None
     if get_settings().scheduler_enabled:
-        scheduler = start_scheduler()
-        app.state.scheduler = scheduler
+        lock = acquire_scheduler_lock()
+        if lock is None:
+            _app_logger.warning("another instance already runs the scheduler; not starting one")
+        else:
+            scheduler = start_scheduler()
+            app.state.scheduler = scheduler
+            beat_now()  # alive from the first second, so /health is green as soon as we serve
+    app.state.scheduler_lock = lock
     try:
         yield
     finally:
         if scheduler is not None:
             scheduler.shutdown(wait=True)
             _app_logger.info("scheduler stopped")
+        if lock is not None:
+            lock.release()
 
 
-def create_app() -> FastAPI:
-    """Built by a function so tests can make one under a different ENV."""
+def create_app(static_dir: str | Path | None = None) -> FastAPI:
+    """Built by a function so tests can make one under a different ENV or with a dashboard.
+
+    With a dashboard (static_dir, or FRONTEND_DIST) the API moves under /api (the dashboard calls
+    it there) and the pages are served from the same origin; /auth, /action and /health stay at
+    the root because Google, emails and monitors use those addresses. Without one (development,
+    most tests) everything is at the root, as before."""
     settings = get_settings()
     prod = settings.is_production
+    site = (
+        StaticSite(Path(static_dir or settings.frontend_dist))
+        if (static_dir or settings.frontend_dist)
+        else None
+    )
+    bundled = site is not None and site.ready
     app = FastAPI(
         title="Smart Inbox To-Do",
         lifespan=lifespan,
@@ -65,11 +90,16 @@ def create_app() -> FastAPI:
         redoc_url=None if prod else "/redoc",
         openapi_url=None if prod else "/openapi.json",
     )
+    api_prefix = API_PREFIX if bundled else ""
+    app.include_router(auth.router)
+    app.include_router(actions.router)
+    app.include_router(dev.router)
+    if bundled:
+        app.include_router(auth.router, prefix=api_prefix)  # the dashboard's login/logout calls
     for module in (
-        auth, me, sync, tasks, folders, quarantine, settings_api, sources, triage,
-        notifications, push, actions, dev,
+        me, sync, tasks, folders, quarantine, settings_api, sources, triage, notifications, push,
     ):  # fmt: skip
-        app.include_router(module.router)
+        app.include_router(module.router, prefix=api_prefix)
 
     @app.exception_handler(ReauthRequired)
     async def _reauth_required(request: Request, exc: ReauthRequired) -> JSONResponse:
@@ -83,8 +113,22 @@ def create_app() -> FastAPI:
         return JSONResponse({"detail": "Could not reach Google; try again"}, status_code=502)
 
     @app.get("/health")
-    def health() -> dict[str, str]:
-        return {"status": "ok", "db": "ok" if check_db() else "error"}
+    def health_check() -> Response:
+        status, body = health()
+        return JSONResponse(body, status_code=status, headers={"Cache-Control": "no-store"})
+
+    if bundled:
+
+        @app.exception_handler(StarletteHTTPException)
+        async def _not_found(request: Request, exc: StarletteHTTPException):
+            """A GET that matched no route is a dashboard page. A 404 raised by a real route
+            (task not found) stays a JSON error."""
+            from fastapi.exception_handlers import http_exception_handler
+
+            unmatched = request.scope.get("endpoint") is None
+            if exc.status_code == 404 and unmatched and request.method in ("GET", "HEAD"):
+                return site.respond(request.url.path)
+            return await http_exception_handler(request, exc)
 
     # Added last = outermost for CORS (so preflights are answered first); the security middleware
     # sits inside it and runs the CSRF origin check and adds the headers.

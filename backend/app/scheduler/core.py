@@ -10,6 +10,8 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
@@ -29,6 +31,46 @@ JOBS = {
     # Hourly because every user has their own digest hour; run_digest handles who is due.
     "digest": ("app.scheduler.jobs:digest_job", lambda: CronTrigger(minute=0, timezone=TIMEZONE)),
 }
+
+
+SCHEDULER_LOCK_KEY = 0x53434844  # "SCHD"
+
+
+class SchedulerLock:
+    """A Postgres advisory lock held on its own connection for as long as this process lives.
+    Whoever holds it runs the scheduler, so a second instance (an overlapping deploy, a stray
+    local run against the same database) never sends reminders twice."""
+
+    def __init__(self, engine, connection) -> None:
+        self._engine, self._connection = engine, connection
+
+    def release(self) -> None:
+        try:
+            self._connection.execute(
+                text("SELECT pg_advisory_unlock(:k)"), {"k": SCHEDULER_LOCK_KEY}
+            )
+            self._connection.commit()
+        finally:
+            self._connection.close()
+            self._engine.dispose()
+
+
+def acquire_scheduler_lock(database_url: str | None = None) -> SchedulerLock | None:
+    """The lock, or None when another process already holds it. Needs a direct (not pooled)
+    database connection: advisory locks do not survive transaction-pooling proxies."""
+    from sqlalchemy import create_engine
+
+    engine = create_engine(database_url or get_settings().database_url, poolclass=NullPool)
+    connection = engine.connect()
+    got = connection.execute(
+        text("SELECT pg_try_advisory_lock(:k)"), {"k": SCHEDULER_LOCK_KEY}
+    ).scalar_one()
+    connection.commit()
+    if not got:
+        connection.close()
+        engine.dispose()
+        return None
+    return SchedulerLock(engine, connection)
 
 
 def build_scheduler(database_url: str | None = None) -> BackgroundScheduler:

@@ -58,8 +58,10 @@ def _test_env(monkeypatch):
     from app.hardening import reset_rate_limits
 
     reset_rate_limits()
+    from app import db as app_db
     from app import rebuild
 
+    app_db.get_engine.cache_clear()  # no engine may leak from one test's database into the next
     rebuild._status.clear()  # a previous test's finished rebuild must not look like this one's
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id.apps.googleusercontent.com")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")

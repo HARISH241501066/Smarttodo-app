@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+// Static export: the manifest is written once at build time.
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Smart To-Do",
