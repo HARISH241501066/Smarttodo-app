@@ -120,11 +120,11 @@ ids, suspicious emails, tokens). You can also revoke access at
   rate limiter is per process and in memory. `npm audit` lists one dev-only advisory (`braces`,
   pulled in by the lint tooling, no patched release exists); `npm audit --omit=dev` is clean.
 
-## Deployment (Render + Neon, free)
+## Deployment (Render + Supabase, free)
 
 One Render web service runs everything: the FastAPI API, the background scheduler and the dashboard
 (exported as static files and served by FastAPI from the same address, so there is one origin and
-one cookie). The database is a free Neon Postgres. UptimeRobot pings `/health` so the free service
+one cookie). The database is a free Supabase Postgres, reached through its **Session pooler**. UptimeRobot pings `/health` so the free service
 does not sleep and you get an email if it goes down.
 
 ```
@@ -136,12 +136,12 @@ browser / phone ──https──> Render web service (Docker, ONE uvicorn worke
                               ├─ /health      200 only if the DB answers and the scheduler beats
                               └─ scheduler    reminders, 15-minute Gmail sync, digest
                                    │
-                                   └──────────> Neon Postgres (everything is stored here)
+                                   └──────────> Supabase Postgres (everything is stored here)
 ```
 
 ### How to deploy
 
-1. Create the Google project and OAuth client, the Neon database, and the Render service by
+1. Create the Google project and OAuth client, the Supabase database, and the Render service by
    following the steps your assistant walks you through (they are the manual steps of the
    deployment module; the names of the variables are in the table below).
 2. Render builds the `Dockerfile` (stage 1 exports the dashboard with Node, stage 2 is the slim
@@ -171,7 +171,7 @@ marked secret are never stored in the repository.
 | Variable | Secret | What it is |
 | --- | --- | --- |
 | `ENV` | no | `production` (already in `render.yaml`): no `/docs`, secure cookies, HSTS, dev page off |
-| `DATABASE_URL` | yes | Neon **direct** connection string (`postgresql://…?sslmode=require`; not the `-pooler` one, because the scheduler lock needs a real connection) |
+| `DATABASE_URL` | yes | Supabase **Session pooler** string (Project, **Connect**, "Session pooler": `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres`; add `?sslmode=require`). Not the "Transaction pooler" (port 6543: it breaks the scheduler's advisory lock) and not the "Direct connection" (IPv6 only on the free plan, which Render cannot reach) |
 | `PUBLIC_BASE_URL` | no | `https://<app-address>`: used in the emails' "Mark as done" links |
 | `FRONTEND_URL` | no | the same `https://<app-address>`: the only origin allowed to make changes (CSRF/CORS) |
 | `GOOGLE_CLIENT_ID` | no | OAuth client id |
@@ -205,15 +205,15 @@ comma (`new,old`); nobody is signed out and no stored token breaks. Remove the o
 * Only **one** uvicorn worker runs (more would each start a scheduler). A Postgres advisory lock
   also makes sure that if two instances ever overlap (for example during a deploy) only one of
   them runs the scheduler and sends reminders.
-* Neon scales to zero when idle; the first query after a pause can take a second or two. The app
-  recycles its connections, so this is invisible apart from that one slow request.
+* Supabase pauses a free project after a week without activity; the scheduler touches the database every minute, so an always-on app never pauses. The session pooler keeps one real database connection per app connection, which is why advisory locks (the single-scheduler guard) work through it.
+* `/health` caches its database check for 60 seconds, so the monitor and Render's own health check add almost no load.
 * The filesystem is temporary. The app writes nothing to disk; everything is in the database.
 
 ### Roll back
 
 * **Code:** Render dashboard, **Events** (or **Deploys**), pick the last good deploy, **Rollback**.
   Migrations only add things, so older code keeps working against the newer database.
-* **A bad migration:** run `alembic downgrade -1` from a shell with `DATABASE_URL` set to the Neon
+* **A bad migration:** run `alembic downgrade -1` from a shell with `DATABASE_URL` set to the Supabase
   string (most migrations have a downgrade; check the file first), then roll the code back.
 * **A bad environment variable:** change it back in **Environment**; Render restarts the service.
 
@@ -225,6 +225,6 @@ comma (`new,old`); nobody is signed out and no stored token breaks. Remove the o
 | No reminder emails, or `SMTP` errors in the logs | Render logs show `smtp` failures; wrong `SMTP_HOST/USERNAME/PASSWORD`, or the provider blocked the login | Fix the SMTP variables (use an app password). Reminders for push and in-app still arrive; failed sends are retried a few times (up to 5 attempts) before the reminder is given up on. |
 | The first page load is slow, or UptimeRobot reports "down" for a minute | The free service was asleep or restarting | Normal after a deploy or a long gap. Check the UptimeRobot interval is 5 minutes. |
 | `/health` returns 503 with `"scheduler":"stale"` | The scheduler has not beaten for 5 minutes: it stopped, or another instance holds the lock | Render dashboard, **Manual Deploy**, **Restart service**. If it persists, check there is exactly one instance and the logs for `another instance already runs the scheduler`. |
-| `/health` returns 503 with `"db":"error"`, or logs show `OperationalError` / `connection` errors | Neon is paused, the string is wrong, or you used the `-pooler` URL | Open the Neon console (it wakes the database), confirm `DATABASE_URL` is the **direct** string with `?sslmode=require`, and restart. |
+| `/health` returns 503 with `"db":"error"`, or logs show `OperationalError` / `connection` errors | The Supabase project is paused or its password changed, the string is wrong, or it is the Transaction pooler (port 6543) or the Direct connection | In the Supabase dashboard check the project is **Active** (restore it if paused), open **Connect**, copy the **Session pooler** string again and update `DATABASE_URL` in Render, then restart. |
 | Sign-in fails with `redirect_uri_mismatch` | The OAuth client's redirect URI differs from `GOOGLE_REDIRECT_URI` | They must match exactly, including `https` and no trailing slash. |
 | Changes are refused with 403 "Cross-site request refused" | `FRONTEND_URL` / `PUBLIC_BASE_URL` do not equal the address in the browser | Set both to the exact `https://<app-address>` (or custom domain). |

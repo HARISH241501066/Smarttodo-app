@@ -6,9 +6,11 @@ outside monitor notices a stuck scheduler as well as a dead server. The answer n
 part and nothing else: no secrets, no user data.
 """
 
+import threading
+import time
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -18,6 +20,38 @@ from app.models import Heartbeat
 
 DISPATCHER = "dispatcher"
 STALE_AFTER = timedelta(minutes=5)
+CACHE_SECONDS = 60  # monitors ping often; the database is asked at most once a minute
+
+_lock = threading.Lock()
+_cache: dict = {}  # {"at": monotonic seconds, "db_ok": bool, "last": datetime | None}
+
+
+def reset_health_cache() -> None:
+    with _lock:
+        _cache.clear()
+
+
+def _probe() -> tuple[bool, datetime | None]:
+    """One round trip to the database: is it up, and when did the scheduler last beat."""
+    try:
+        with sessionmaker(get_engine(), expire_on_commit=False)() as session:
+            last = session.scalar(
+                select(func.max(Heartbeat.last_beat_at)).where(Heartbeat.name == DISPATCHER)
+            )
+        return True, last
+    except Exception:
+        return False, None
+
+
+def _cached_probe() -> tuple[bool, datetime | None]:
+    with _lock:
+        fresh = _cache and time.monotonic() - _cache["at"] < CACHE_SECONDS
+        if fresh:
+            return _cache["db_ok"], _cache["last"]
+    result = _probe()  # outside the lock: a slow database must not block other pings
+    with _lock:
+        _cache.update(at=time.monotonic(), db_ok=result[0], last=result[1])
+    return result
 
 
 def beat(session: Session, name: str = DISPATCHER, now: datetime | None = None) -> None:
@@ -37,16 +71,11 @@ def beat_now(name: str = DISPATCHER) -> None:
 
 
 def health(now: datetime | None = None) -> tuple[int, dict[str, str]]:
-    """(HTTP status, body)."""
+    """(HTTP status, body). The database answer is reused for CACHE_SECONDS."""
     now = now or datetime.now(UTC)
     body = {"status": "ok", "db": "ok", "scheduler": "ok"}
-    try:
-        with sessionmaker(get_engine(), expire_on_commit=False)() as session:
-            session.execute(text("SELECT 1"))
-            last = session.scalar(
-                select(func.max(Heartbeat.last_beat_at)).where(Heartbeat.name == DISPATCHER)
-            )
-    except Exception:
+    db_ok, last = _cached_probe()
+    if not db_ok:
         return 503, {"status": "fail", "db": "error", "scheduler": "unknown"}
     if not get_settings().scheduler_enabled:
         body["scheduler"] = "disabled"  # development and tests run without one

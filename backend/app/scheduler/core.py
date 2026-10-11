@@ -56,8 +56,9 @@ class SchedulerLock:
 
 
 def acquire_scheduler_lock(database_url: str | None = None) -> SchedulerLock | None:
-    """The lock, or None when another process already holds it. Needs a direct (not pooled)
-    database connection: advisory locks do not survive transaction-pooling proxies."""
+    """The lock, or None when another process already holds it. Needs a session-level
+    connection (direct, or a session pooler): a transaction pooler would lose the lock.
+    """
     from sqlalchemy import create_engine
 
     engine = create_engine(database_url or get_settings().database_url, poolclass=NullPool)

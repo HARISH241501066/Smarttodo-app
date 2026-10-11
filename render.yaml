@@ -32,7 +32,7 @@ services:
       - key: SMTP_SECURITY
         value: starttls
       # --- set these in the Render dashboard (sync: false = never read from this file) ---
-      - key: DATABASE_URL          # Neon DIRECT connection string (not the -pooler one)
+      - key: DATABASE_URL          # Supabase SESSION POOLER string (port 5432)
         sync: false
       - key: PUBLIC_BASE_URL       # https://<app-address>
         sync: false

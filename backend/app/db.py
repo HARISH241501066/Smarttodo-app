@@ -11,7 +11,7 @@ from app.config import get_settings
 def get_engine() -> Engine:
     return create_engine(
         get_settings().database_url,
-        pool_pre_ping=True,  # a database that scales to zero (Neon) drops idle connections
+        pool_pre_ping=True,  # a pooler or a paused database drops idle connections
         pool_recycle=300,
     )
 

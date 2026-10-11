@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def _driver(cls, value: str) -> str:
-        """Hosts (Neon, Render) hand out postgres:// or postgresql:// URLs; we use psycopg 3."""
+        """Hosts (Supabase, Render) hand out postgres:// or postgresql:// URLs; we use psycopg 3."""
         for prefix in ("postgres://", "postgresql://"):
             if value.startswith(prefix):
                 return "postgresql+psycopg://" + value[len(prefix) :]

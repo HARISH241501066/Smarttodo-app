@@ -12,7 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from app import db
 from app.config import Settings, get_settings
 from app.db import get_session
-from app.health import STALE_AFTER, beat, health
+from app.health import STALE_AFTER, beat, health, reset_health_cache
 from app.main import create_app
 from app.scheduler.core import acquire_scheduler_lock
 from app.security import sign
@@ -209,10 +209,13 @@ def test_health_is_503_when_the_scheduler_heartbeat_is_missing_or_old_and_200_wh
     eng = create_engine(real_db)
     with sessionmaker(eng, expire_on_commit=False)() as s:
         beat(s, now=now - timedelta(minutes=4))
+        reset_health_cache()
         assert health(now) == (200, {"status": "ok", "db": "ok", "scheduler": "ok"})
         beat(s, now=now - STALE_AFTER - timedelta(seconds=1))  # one beat, now too old
+        reset_health_cache()
         assert health(now)[0] == 503 and health(now)[1]["scheduler"] == "stale"
         beat(s, now=now)
+        reset_health_cache()
         assert health(now)[0] == 200
         assert (
             s.execute(text("SELECT count(*) FROM heartbeats")).scalar_one() == 1
@@ -231,6 +234,7 @@ def test_the_health_endpoint_returns_the_status_code_and_nothing_secret(real_db,
     with sessionmaker(eng, expire_on_commit=False)() as s:
         beat(s)
     eng.dispose()
+    reset_health_cache()
     fresh = web.get("/health")
     assert fresh.status_code == 200 and set(fresh.json()) == {"status", "db", "scheduler"}
     assert real_db not in fresh.text and "postgres" not in fresh.text
@@ -306,3 +310,55 @@ def test_the_service_worker_is_allowed_to_fetch_from_its_own_origin(site):
         csp = site.get(path).headers["content-security-policy"]
         assert "default-src 'self'" in csp and "connect-src 'self'" in csp, path
         assert "default-src 'none'" not in csp
+
+
+# ---------- /health does not query the database on every ping ----------
+
+
+def test_health_asks_the_database_at_most_once_a_minute(real_db, monkeypatch):
+    import app.health as health_mod
+
+    probes = []
+    real = health_mod._probe
+    monkeypatch.setattr(health_mod, "_probe", lambda: probes.append(1) or real())
+    clock = [1000.0]
+    monkeypatch.setattr(health_mod.time, "monotonic", lambda: clock[0])
+    web = TestClient(create_app(None))
+
+    for _ in range(20):  # a monitor and the host's own check pinging away
+        assert web.get("/health").status_code == 200
+    assert len(probes) == 1
+    clock[0] += 59
+    web.get("/health")
+    assert len(probes) == 1
+    clock[0] += 2  # 61 seconds after the first answer
+    web.get("/health")
+    assert len(probes) == 2
+
+
+def test_a_cached_answer_still_notices_an_old_heartbeat_and_a_down_database(real_db, monkeypatch):
+    import app.health as health_mod
+
+    monkeypatch.setenv("SCHEDULER_ENABLED", "true")
+    get_settings.cache_clear()
+    now = datetime(2030, 1, 1, 12, 0, tzinfo=UTC)
+    eng = create_engine(real_db)
+    with sessionmaker(eng, expire_on_commit=False)() as s:
+        beat(s, now=now - timedelta(minutes=2))
+    eng.dispose()
+    reset_health_cache()
+    assert health(now)[0] == 200  # the answer is now cached
+    # five minutes later the same cached heartbeat is too old, without another query
+    assert health(now + timedelta(minutes=4))[0] == 503
+    # a failure is cached too (so a dead database is not hammered), and then re-checked
+    clock = [50.0]
+    monkeypatch.setattr(health_mod.time, "monotonic", lambda: clock[0])
+    reset_health_cache()
+    monkeypatch.setattr(health_mod, "_probe", lambda: (False, None))
+    assert health(now) == (503, {"status": "fail", "db": "error", "scheduler": "unknown"})
+    calls = []
+    monkeypatch.setattr(health_mod, "_probe", lambda: calls.append(1) or (True, now))
+    health(now)
+    assert calls == []  # still inside the minute
+    clock[0] += 61
+    assert health(now)[0] == 200 and calls == [1]
