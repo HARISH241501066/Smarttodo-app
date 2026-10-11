@@ -83,6 +83,7 @@ class TaskOut(BaseModel):
     origin: Literal["manual", "email"] = "email"
     tag: str | None = None
     reminders_enabled: bool = True
+    snoozed_until: datetime | None = None
     subtasks: list[SubtaskOut] = []
     subtasks_done: int = 0
     subtasks_total: int = 0
@@ -113,6 +114,7 @@ class TaskOut(BaseModel):
             origin="manual" if task.source == "manual" else "email",
             tag=task.tag,
             reminders_enabled=task.reminders_enabled,
+            snoozed_until=task.snoozed_until,
             subtasks=[SubtaskOut.model_validate(s) for s in task.subtasks],
             subtasks_done=sum(1 for s in task.subtasks if s.done),
             subtasks_total=len(task.subtasks),
@@ -190,6 +192,7 @@ class TaskUpdate(BaseModel):
     link: str | None = None
     tag: str | None = None
     reminders_enabled: bool | None = None
+    snoozed_until: datetime | None = None  # hides the task until then; null shows it again
 
     _title = field_validator("title")(_clean_title)
     _link = field_validator("link")(validate_http_url)
@@ -288,6 +291,7 @@ class SettingsBody(BaseModel):
     block_senders: list[str]
     require_deadline: bool = False
     digest_hour: int = Field(ge=0, le=23)
+    notices: list[str] = []  # filled in answers to PUT: what the change did elsewhere
 
     _keywords = field_validator("watch_keywords")(_keyword_list)
     _block = field_validator("block_senders")(_sender_list)

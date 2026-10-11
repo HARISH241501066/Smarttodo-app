@@ -71,7 +71,7 @@ function RebuildSummary({ result }: { result: RebuildResult }) {
 export default function SettingsPage() {
   const router = useRouter();
   const toast = useToast();
-  const { me, refreshCounts, refreshNotifications } = useApp();
+  const { me, refreshCounts, refreshFolders, refreshNotifications } = useApp();
 
   const [saved, setSaved] = useState<SettingsData | null>(null);
   const [draft, setDraft] = useState<SettingsData | null>(null);
@@ -116,10 +116,13 @@ export default function SettingsPage() {
     setSaving(true);
     setSaveError(null);
     try {
-      const next = await api<SettingsData>("/settings", { method: "PUT", json: draft });
+      const { notices, ...next } = await api<SettingsData>("/settings", { method: "PUT", json: draft });
       setSaved(next);
       setDraft(next);
       toast.show("Settings saved");
+      // A deleted source is also taken out of folder rules: say so.
+      for (const notice of notices ?? []) toast.show(notice);
+      if (notices?.length) void refreshFolders();
     } catch (err) {
       setSaveError(errorMessage(err));
     } finally {

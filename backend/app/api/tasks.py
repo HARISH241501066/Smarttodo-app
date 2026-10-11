@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from googleapiclient.errors import HttpError
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.sync import get_gmail_api
@@ -58,6 +58,10 @@ def owned_task(session: Session, user: User, task_id: int) -> Task:
     return task
 
 
+def _not_snoozed():
+    return or_(Task.snoozed_until.is_(None), Task.snoozed_until <= datetime.now(UTC))
+
+
 def _category(task: Task) -> str:
     return "unknown" if task.source in ("other", "manual") else task.source
 
@@ -94,7 +98,7 @@ def list_tasks(
     expired = complete_expired_email_tasks(session, user_id=user.id)
     if recompute_priorities(session, user_id=user.id) or expired:
         session.commit()
-    stmt = select(Task).where(Task.user_id == user.id)
+    stmt = select(Task).where(Task.user_id == user.id, _not_snoozed())
     if status:
         stmt = stmt.where(Task.status == status)
     if priority:
@@ -123,7 +127,7 @@ def deadlines(
     statuses = ("open", "done") if include_done else ("open",)
     stmt = (
         select(Task)
-        .where(Task.user_id == user.id, Task.status.in_(statuses))
+        .where(Task.user_id == user.id, Task.status.in_(statuses), _not_snoozed())
         .order_by(Task.deadline.asc().nulls_last(), Task.created_at.desc(), Task.id.desc())
     )
     return [TaskOut.from_task(t) for t in session.scalars(stmt)]
@@ -244,6 +248,8 @@ def update_task(
         task.priority = body.priority
     if "link" in sent:
         _set_link(task, body.link)
+    if "snoozed_until" in sent:
+        task.snoozed_until = to_utc(body.snoozed_until)
     if "tag" in sent:
         task.tag = body.tag
     if "reminders_enabled" in sent:

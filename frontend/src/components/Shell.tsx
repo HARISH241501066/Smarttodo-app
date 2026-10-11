@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType, ReactNode, SVGProps } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { useApp } from "@/components/AppProvider";
-import { CalendarIcon, GearIcon, InboxIcon, ShieldIcon, UserIcon } from "@/components/icons";
+import { CalendarIcon, FolderIcon, GearIcon, InboxIcon, ShieldIcon, UserIcon, XIcon } from "@/components/icons";
+import { FolderNav } from "@/components/FolderNav";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { InstallButton } from "@/components/InstallButton";
@@ -20,6 +21,14 @@ export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { me, reviewCount, suspiciousCount } = useApp();
   const attention = reviewCount + suspiciousCount;
+  const [drawer, setDrawer] = useState(false);
+
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawer]);
 
   const tabs: Tab[] = [
     { href: "/", label: "My Tasks", Icon: UserIcon },
@@ -49,6 +58,16 @@ export function Shell({ children }: { children: ReactNode }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => setDrawer(true)}
+              aria-label="Open folders"
+              aria-expanded={drawer}
+              data-testid="folders-button"
+              className="rounded-lg p-2 text-muted hover:bg-surface-2 md:hidden"
+            >
+              <FolderIcon width={20} height={20} />
+            </button>
             <InstallButton />
             <ThemeToggle />
             {attention > 0 ? (
@@ -89,7 +108,40 @@ export function Shell({ children }: { children: ReactNode }) {
         ) : null}
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-3 pb-28 pt-4 sm:px-4 sm:pb-10">{children}</main>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-3 sm:px-4">
+        <aside aria-label="Folders sidebar" className="sticky top-16 hidden h-[calc(100dvh-5rem)] w-60 shrink-0 overflow-y-auto pt-4 md:block">
+          <FolderNav />
+        </aside>
+        <main className="min-w-0 max-w-4xl flex-1 pb-28 pt-4 sm:pb-10">{children}</main>
+      </div>
+
+      {drawer ? (
+        <div className="fixed inset-0 z-40 md:hidden" data-testid="folder-drawer">
+          <button
+            type="button"
+            aria-label="Close folders"
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setDrawer(false)}
+          />
+          <div
+            role="dialog"
+            aria-label="Folders"
+            className="absolute inset-y-0 left-0 w-72 max-w-[85vw] overflow-y-auto bg-surface p-3 shadow-xl"
+          >
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                aria-label="Close drawer"
+                onClick={() => setDrawer(false)}
+                className="rounded-lg p-2 text-muted hover:bg-surface-2"
+              >
+                <XIcon width={18} height={18} />
+              </button>
+            </div>
+            <FolderNav onNavigate={() => setDrawer(false)} />
+          </div>
+        </div>
+      ) : null}
 
       <nav
         aria-label="Main"

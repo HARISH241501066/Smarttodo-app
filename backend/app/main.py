@@ -9,6 +9,7 @@ from app.api import (
     actions,
     auth,
     dev,
+    folders,
     me,
     notifications,
     push,
@@ -53,6 +54,7 @@ app.include_router(auth.router)
 app.include_router(me.router)
 app.include_router(sync.router)
 app.include_router(tasks.router)
+app.include_router(folders.router)
 app.include_router(quarantine.router)
 app.include_router(settings.router)
 app.include_router(sources.router)

@@ -91,6 +91,7 @@ const task = (over: Partial<Task> = {}): Task => ({
   origin: "email",
   tag: null,
   reminders_enabled: true,
+  snoozed_until: null,
   subtasks: [],
   subtasks_done: 0,
   subtasks_total: 0,

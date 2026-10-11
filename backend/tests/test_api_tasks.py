@@ -525,6 +525,7 @@ DEFAULT_SETTINGS = {
     "block_senders": [],
     "require_deadline": False,
     "digest_hour": 8,
+    "notices": [],
 }
 
 
@@ -558,6 +559,7 @@ def test_put_settings_replaces_normalizes_and_feeds_the_gmail_query(api):
         "block_senders": ["spammy.example", "news.test"],
         "require_deadline": True,
         "digest_hour": 20,
+        "notices": [],
     }
     assert api.get("/settings").json() == resp.json()  # persists
     query = build_query(load_sources(resp.json()["sources"]), resp.json()["watch_keywords"])

@@ -1,6 +1,8 @@
 from app.models.base import (
     Base,
     CalendarOrphan,
+    Folder,
+    FolderPin,
     IngestFailure,
     Notification,
     ProcessedMessage,
@@ -18,6 +20,8 @@ from app.models.base import (
 __all__ = [
     "Base",
     "CalendarOrphan",
+    "Folder",
+    "FolderPin",
     "IngestFailure",
     "Notification",
     "ProcessedMessage",

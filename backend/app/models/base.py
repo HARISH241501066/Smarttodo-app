@@ -98,6 +98,7 @@ class Task(Base):
     user_confirmed: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), nullable=False
     )
+    snoozed_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     tag: Mapped[str | None] = mapped_column(Text)  # free text; suggestions come from tags in use
     reminders_enabled: Mapped[bool] = mapped_column(
         Boolean, server_default=text("true"), nullable=False
@@ -115,6 +116,39 @@ class Task(Base):
         lazy="selectin",
         passive_deletes=True,
         cascade="all, delete-orphan",
+    )
+
+
+class Folder(Base):
+    """A saved view: tasks matching `rules` (computed when read, never copied) plus pinned ones."""
+
+    __tablename__ = "folders"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    emoji: Mapped[str] = mapped_column(String(16), server_default="", nullable=False)
+    color: Mapped[str] = mapped_column(String(16), server_default="#2563eb", nullable=False)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    rules: Mapped[Any] = mapped_column(JSONB, server_default=text("'{}'::jsonb"), nullable=False)
+    show_completed: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False
+    )
+    created_at: Mapped[datetime] = _ts()
+
+
+class FolderPin(Base):
+    """A task put into a folder by hand. Deleted with either the folder or the task."""
+
+    __tablename__ = "folder_pins"
+
+    folder_id: Mapped[int] = mapped_column(
+        ForeignKey("folders.id", ondelete="CASCADE"), primary_key=True
+    )
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True, index=True
     )
 
 

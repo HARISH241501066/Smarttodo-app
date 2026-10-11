@@ -41,6 +41,7 @@ export interface Task {
   origin: "manual" | "email";
   tag: string | null;
   reminders_enabled: boolean;
+  snoozed_until: string | null;
   subtasks: Subtask[];
   subtasks_done: number;
   subtasks_total: number;
@@ -100,6 +101,7 @@ export interface SettingsData {
   block_senders: string[];
   require_deadline: boolean;
   digest_hour: number;
+  notices?: string[]; // set in the answer to a save: what it changed elsewhere
 }
 
 /** What "Rebuild from sources" would look at, from stored data only. */
@@ -152,4 +154,38 @@ export interface TaskInput {
 export interface SubtaskDraft {
   id?: number;
   title: string;
+}
+
+export type FolderPriority = Priority;
+
+export interface FolderRules {
+  sources: string[]; // your source names, "hackathon" and "manual"
+  tags: string[];
+  priorities: Priority[];
+  title_contains: string | null;
+}
+
+export interface Folder {
+  id: number;
+  name: string;
+  emoji: string;
+  color: string;
+  position: number;
+  rules: FolderRules;
+  show_completed: boolean;
+  open_count: number;
+  has_overdue: boolean;
+  pinned?: boolean | null;
+}
+
+export interface FolderGroup {
+  key: "overdue" | "today" | "tomorrow" | "week" | "later" | "none" | "completed";
+  label: string;
+  tasks: Task[];
+}
+
+export interface FolderTasks {
+  groups: FolderGroup[];
+  pinned_ids: number[];
+  rule_ids: number[];
 }

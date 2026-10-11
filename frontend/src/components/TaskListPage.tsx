@@ -1,21 +1,18 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useApp } from "@/components/AppProvider";
 import { PlusIcon } from "@/components/icons";
 import { TaskCard } from "@/components/TaskCard";
-import { EmailViewer } from "@/components/EmailViewer";
-import { TaskModal } from "@/components/TaskModal";
 import { useToast } from "@/components/toast";
-import { Button, ConfirmDialog, EmptyState, ErrorNote, Spinner } from "@/components/ui";
-import { api, errorMessage } from "@/lib/api";
+import { Button, EmptyState, ErrorNote, Spinner } from "@/components/ui";
+import { api } from "@/lib/api";
 import { useLoader, useNow } from "@/lib/hooks";
-import { buildCreate, buildPatch, GROUPS, subtasksChanged, syncSubtasks } from "@/lib/tasks";
-import type { SubtaskChange, Task, TaskInput } from "@/lib/types";
+import { GROUPS } from "@/lib/tasks";
+import type { Task } from "@/lib/types";
+import { useTaskActions } from "@/lib/useTaskActions";
 
 type Origin = "manual" | "email";
-type ModalState = { mode: "create" } | { mode: "edit" | "email"; task: Task } | null;
 
 const PATH: Record<Origin, string> = { manual: "/", email: "/email" };
 
@@ -38,7 +35,6 @@ export function TaskListPage(props: Props) {
 function List({ origin, title, empty }: Props) {
   const router = useRouter();
   const params = useSearchParams();
-  const { refreshNotifications, refreshCounts } = useApp();
   const toast = useToast();
   const now = useNow();
   const manual = origin === "manual";
@@ -51,18 +47,23 @@ function List({ origin, title, empty }: Props) {
   const error = open.error ?? done.error;
   const load = open.reload;
   const loadDone = done.reload;
-  const [busyId, setBusyId] = useState<number | null>(null);
-  const [modal, setModal] = useState<ModalState>(null);
-  const [toDelete, setToDelete] = useState<Task | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [viewing, setViewing] = useState<Task | null>(null);
-  const [wholeDone, setWholeDone] = useState<Task | null>(null);
-  const [finishing, setFinishing] = useState(false);
-
-  const afterChange = useCallback(() => {
-    void refreshNotifications();
-    void refreshCounts();
-  }, [refreshNotifications, refreshCounts]);
+  const actions = useTaskActions({
+    reload: () => {
+      load();
+      if (showDone) loadDone();
+    },
+    replace: (task) => {
+      const swap = (list: Task[] | null) => list?.map((t) => (t.id === task.id ? task : t)) ?? list;
+      open.setData(swap);
+      done.setData(swap);
+    },
+    remove: (id) => {
+      const drop = (list: Task[] | null) => list?.filter((t) => t.id !== id) ?? list;
+      open.setData(drop);
+      done.setData(drop);
+    },
+  });
+  const { openEdit } = actions;
 
   // A notification click arrives as ?task=ID: scroll to that card; if it is not in this list, open
   // it (or move to the other tab when it belongs there).
@@ -85,7 +86,7 @@ function List({ origin, title, empty }: Props) {
           router.replace(`${PATH[task.origin]}?task=${task.id}`);
           return;
         }
-        setModal({ mode: task.origin === "manual" ? "edit" : "email", task });
+        openEdit(task);
         router.replace(PATH[origin]);
       })
       .catch(() => {
@@ -95,120 +96,11 @@ function List({ origin, title, empty }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [focusId, tasks, router, toast, origin]);
-
-  async function run(task: Task, work: () => Promise<void>) {
-    setBusyId(task.id);
-    try {
-      await work();
-    } catch (err) {
-      toast.show(errorMessage(err), { kind: "error" });
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function reopen(task: Task) {
-    await run(task, async () => {
-      await api(`/tasks/${task.id}`, { method: "PATCH", json: { status: "open" } });
-      load();
-      if (showDone) loadDone();
-      afterChange();
-    });
-  }
-
-  async function markDone(task: Task) {
-    await run(task, async () => {
-      await api(`/tasks/${task.id}/done`, { method: "POST" });
-      open.setData((list) => list?.filter((t) => t.id !== task.id) ?? list);
-      if (showDone) loadDone();
-      toast.show("Marked as done", { action: { label: "Undo", onClick: () => void reopen(task) } });
-      afterChange();
-    });
-  }
-
-  async function dismiss(task: Task) {
-    await run(task, async () => {
-      await api(`/tasks/${task.id}/dismiss`, { method: "POST" });
-      open.setData((list) => list?.filter((t) => t.id !== task.id) ?? list);
-      toast.show("Dismissed");
-      afterChange();
-    });
-  }
-
-  async function confirmDelete() {
-    if (!toDelete) return;
-    const task = toDelete;
-    setDeleting(true);
-    try {
-      await api(`/tasks/${task.id}`, { method: "DELETE" });
-      open.setData((list) => list?.filter((t) => t.id !== task.id) ?? list);
-      done.setData((list) => list?.filter((t) => t.id !== task.id) ?? list);
-      setToDelete(null);
-      toast.show("Task deleted");
-      afterChange();
-    } catch (err) {
-      toast.show(errorMessage(err), { kind: "error" });
-    } finally {
-      setDeleting(false);
-    }
-  }
-
-  function onSubtaskChange(change: SubtaskChange, ticked: boolean) {
-    const replace = (list: Task[] | null) => list?.map((t) => (t.id === change.task.id ? change.task : t)) ?? list;
-    open.setData(replace);
-    done.setData(replace);
-    // Ticking the last one never completes the task by itself: ask first.
-    if (ticked && change.all_subtasks_done && change.task.status === "open") setWholeDone(change.task);
-  }
-
-  async function finishWhole() {
-    if (!wholeDone) return;
-    setFinishing(true);
-    try {
-      await markDone(wholeDone);
-    } finally {
-      setFinishing(false);
-      setWholeDone(null);
-    }
-  }
-
-  async function save(input: TaskInput) {
-    if (modal?.mode === "create") {
-      await api("/tasks", { method: "POST", json: buildCreate(input) });
-      toast.show("Task added");
-    } else if (modal) {
-      const task = modal.task;
-      const patch = buildPatch(task, input);
-      if (Object.keys(patch).length > 0) {
-        await api(`/tasks/${task.id}`, { method: "PATCH", json: patch });
-      }
-      if (input.subtasks && subtasksChanged(task, input.subtasks)) await syncSubtasks(task, input.subtasks);
-      toast.show("Task updated");
-    }
-    setModal(null);
-    load();
-    if (showDone) loadDone();
-    afterChange();
-  }
+  }, [focusId, tasks, router, toast, origin, openEdit]);
 
   const openTasks = tasks ?? [];
   const card = (task: Task, completed = false) => (
-    <TaskCard
-      key={task.id}
-      task={task}
-      now={now}
-      completed={completed}
-      busy={busyId === task.id}
-      onDone={markDone}
-      onReopen={reopen}
-      onEdit={(t) => setModal({ mode: t.origin === "manual" ? "edit" : "email", task: t })}
-      onDelete={setToDelete}
-      onDismiss={dismiss}
-      onViewEmail={setViewing}
-      onSubtaskChange={onSubtaskChange}
-      onError={(m) => toast.show(m, { kind: "error" })}
-    />
+    <TaskCard key={task.id} now={now} completed={completed} {...actions.cardProps(task)} />
   );
 
   return (
@@ -216,7 +108,7 @@ function List({ origin, title, empty }: Props) {
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">{title}</h1>
         {manual ? (
-          <Button variant="primary" onClick={() => setModal({ mode: "create" })}>
+          <Button variant="primary" onClick={actions.openCreate}>
             <PlusIcon width={18} height={18} /> New task
           </Button>
         ) : null}
@@ -265,48 +157,7 @@ function List({ origin, title, empty }: Props) {
         ) : null}
       </section>
 
-      {modal ? (
-        <TaskModal
-          mode={modal.mode}
-          task={modal.mode === "create" ? undefined : modal.task}
-          onClose={() => setModal(null)}
-          onSubmit={save}
-        />
-      ) : null}
-
-      {toDelete ? (
-        <ConfirmDialog
-          title="Delete this task?"
-          message={
-            <>
-              <strong className="text-fg">{toDelete.title}</strong> will be removed along with its subtasks,
-              reminders and Calendar event. This can&apos;t be undone.
-            </>
-          }
-          confirmLabel="Delete"
-          danger
-          busy={deleting}
-          onConfirm={() => void confirmDelete()}
-          onCancel={() => setToDelete(null)}
-        />
-      ) : null}
-
-      {viewing ? <EmailViewer task={viewing} onClose={() => setViewing(null)} /> : null}
-
-      {wholeDone ? (
-        <ConfirmDialog
-          title="Mark the whole task done?"
-          message={
-            <>
-              Every subtask of <strong className="text-fg">{wholeDone.title}</strong> is ticked.
-            </>
-          }
-          confirmLabel="Mark task done"
-          busy={finishing}
-          onConfirm={() => void finishWhole()}
-          onCancel={() => setWholeDone(null)}
-        />
-      ) : null}
+      {actions.overlays}
     </div>
   );
 }

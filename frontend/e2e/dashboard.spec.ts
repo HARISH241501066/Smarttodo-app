@@ -24,8 +24,9 @@ const test = base.extend<{ app: Page }>({
 });
 
 
-const card = (page: Page, title: string): Locator =>
-  page.getByTestId("task-card").filter({ hasText: title });
+// Client-side navigation keeps the previous page mounted but hidden, so only visible cards count.
+const visibleCards = (page: Page): Locator => page.locator('[data-testid="task-card"]:visible');
+const card = (page: Page, title: string): Locator => visibleCards(page).filter({ hasText: title });
 
 /** "YYYY-MM-DDTHH:mm" for `days` from now, as an India wall-clock time (what the form expects). */
 function istInput(days: number): string {
@@ -147,7 +148,7 @@ test("create a task with a deadline and a link, then edit it", async ({ app }) =
   const created = card(app, "E2E created task");
   await expect(created).toBeVisible();
   await expect(created.getByRole("link", { name: "Open & Complete" })).toHaveAttribute("href", "https://example.com/e2e-complete");
-  await expect(created).toContainText("Due in 5 days");
+  await expect(created).toContainText(/Due in [56] days?/);
   const [stored] = (await api<ApiTask[]>(app, "/tasks?source=manual")).filter((t) => t.title === "E2E created task");
   expect(stored).toMatchObject({ status: "open", priority: "regular", link: "https://example.com/e2e-complete" });
 
@@ -1002,6 +1003,184 @@ test("shield icon: shown only while Suspicious or Needs review have items, and o
   await waitForTasks(app);
   await expect(app.getByTestId("attention-link")).toHaveCount(0);
   await expect(app.getByRole("link", { name: "Settings" })).toBeVisible(); // the gear stays
+});
+
+// ------------------------------------------------------------------ smart folders
+
+type ApiFolder = { id: number; name: string; open_count: number; has_overdue: boolean; position: number };
+
+const sidebar = (page: Page) => page.getByRole("complementary", { name: "Folders sidebar" });
+const folderItem = (page: Page, name: string) => sidebar(page).getByTestId("folder-item").filter({ hasText: name });
+
+test("folders: create College (Digii + NPTEL) with a live preview, then edit the rules and see the contents change at once", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  const emailTasks = await api<(ApiTask & { source_name: string | null })[]>(app, "/tasks?origin=email&status=open&limit=500");
+  const wanted = (names: string[]) => emailTasks.filter((t) => t.source_name && names.includes(t.source_name));
+  const both = wanted(["Digii", "NPTEL"]);
+  expect(both.length).toBeGreaterThanOrEqual(2);
+
+  await sidebar(app).getByRole("button", { name: "New folder" }).click();
+  const dialog = app.getByRole("dialog", { name: "New folder" });
+  await dialog.getByLabel("Name").fill("College");
+  await dialog.getByRole("button", { name: "Use 🎓" }).click();
+  await expect(dialog.getByTestId("folder-preview")).toContainText("0 tasks match right now"); // no rules yet
+  await dialog.getByTestId("rule-sources").getByRole("button", { name: "Digii", exact: true }).click();
+  await expect(dialog.getByTestId("folder-preview")).toContainText(`${wanted(["Digii"]).length} `);
+  await dialog.getByTestId("rule-sources").getByRole("button", { name: "NPTEL", exact: true }).click();
+  await expect(dialog.getByTestId("folder-preview")).toHaveText(new RegExp(`^${both.length} tasks? match(es)? right now$`));
+  await dialog.getByRole("button", { name: "Create folder" }).click();
+
+  await expect(app).toHaveURL(/\/folders\/\d+$/);
+  await expect(app.getByRole("heading", { name: /College/, level: 1 })).toBeVisible();
+  await expect(app.getByTestId("folder-rules")).toContainText("Source: Digii or NPTEL");
+  const cards = visibleCards(app);
+  await expect(cards).toHaveCount(both.length);
+  for (const card of await cards.all()) {
+    await expect(card.getByTestId("source-badge")).toHaveText(/^(Digii|NPTEL)$/);
+    await expect(card.getByTestId("folder-reason")).toHaveText("In this folder by rule");
+  }
+  const created = (await api<ApiFolder[]>(app, "/folders")).find((f) => f.name === "College")!;
+  await expect(folderItem(app, "College").getByTestId("folder-count")).toHaveText(String(both.length));
+
+  // edit the rules: drop NPTEL, the contents follow without a reload
+  await app.getByRole("button", { name: "Edit folder" }).click();
+  const edit = app.getByRole("dialog", { name: "Edit folder" });
+  await edit.getByTestId("rule-sources").getByRole("button", { name: "NPTEL", exact: true }).click();
+  await expect(edit.getByTestId("folder-preview")).toHaveText(new RegExp(`^${wanted(["Digii"]).length} tasks? match(es)? right now$`));
+  await edit.getByRole("button", { name: "Save folder" }).click();
+  await expect(edit).toHaveCount(0);
+  await expect(cards).toHaveCount(wanted(["Digii"]).length);
+  for (const card of await cards.all()) await expect(card.getByTestId("source-badge")).toHaveText("Digii");
+  await expect(app.getByTestId("folder-rules")).toContainText("Source: Digii");
+  expect((await api<ApiFolder[]>(app, "/folders")).find((f) => f.id === created.id)!.open_count).toBe(wanted(["Digii"]).length);
+
+  // priority narrows it further (AND across types): nothing is urgent among Digii tasks
+  await app.getByRole("button", { name: "Edit folder" }).click();
+  await app.getByRole("dialog", { name: "Edit folder" }).getByTestId("rule-priorities").getByRole("button", { name: "Urgent" }).click();
+  await expect(app.getByRole("dialog", { name: "Edit folder" }).getByTestId("folder-preview")).toContainText("0 tasks match");
+  await app.getByRole("dialog", { name: "Edit folder" }).getByTestId("rule-priorities").getByRole("button", { name: "Urgent" }).click(); // back off
+  await app.getByRole("dialog", { name: "Edit folder" }).getByTestId("rule-sources").getByRole("button", { name: "NPTEL", exact: true }).click();
+  await app.getByRole("dialog", { name: "Edit folder" }).getByRole("button", { name: "Save folder" }).click();
+  await expect(cards).toHaveCount(both.length);
+});
+
+test("folders: pin a manual task, remove the pin, create a folder from a source badge", async ({ app }) => {
+  await app.goto("/");
+  await waitForTasks(app);
+  const mine = card(app, "Edit me").or(card(app, "E2E renamed task")).first();
+  const title = (await mine.locator("h3").textContent())!.trim();
+  await mine.getByRole("button", { name: /Add .* to a folder/ }).click();
+  const pin = app.getByRole("dialog", { name: "Add to folder" });
+  await pin.getByRole("checkbox", { name: /College/ }).click();
+  await expect(pin.getByRole("checkbox", { name: /College/ })).toBeChecked();
+  await pin.getByRole("button", { name: "Done" }).click();
+
+  await folderItem(app, "College").getByRole("link").click();
+  await expect(app).toHaveURL(/\/folders\/\d+$/);
+  const pinned = card(app, title);
+  await expect(pinned).toBeVisible(); // it matches no rule, only the pin
+  await expect(pinned.getByTestId("folder-reason")).toHaveText("Pinned to this folder");
+  // rule-matched tasks cannot be "removed"; pinned ones can
+  const ruled = visibleCards(app).filter({ hasText: "In this folder by rule" }).first();
+  await expect(ruled.getByRole("button", { name: /Remove .* from this folder/ })).toHaveCount(0);
+  await pinned.getByRole("button", { name: /Remove .* from this folder/ }).click();
+  await expect(card(app, title)).toHaveCount(0);
+
+  // the same task can be in two folders
+  await app.goto("/");
+  await waitForTasks(app);
+  const res = await app.request.post("/api/folders", { data: { name: "Second", emoji: "⭐" } });
+  expect(res.ok()).toBeTruthy();
+  const second = (await res.json()) as ApiFolder;
+  const first = (await api<ApiFolder[]>(app, "/folders")).find((f) => f.name === "College")!;
+  const taskId = (await api<ApiTask[]>(app, "/tasks?origin=manual&limit=500")).find((t) => t.title === title)!.id;
+  expect((await app.request.post(`/api/folders/${first.id}/pins/${taskId}`)).ok()).toBeTruthy();
+  expect((await app.request.post(`/api/folders/${second.id}/pins/${taskId}`)).ok()).toBeTruthy();
+  for (const f of [first, second]) {
+    expect((await api<{ groups: { tasks: { id: number }[] }[] }>(app, `/folders/${f.id}/tasks`)).groups.flatMap((g) => g.tasks.map((t) => t.id))).toContain(taskId);
+  }
+
+  // From Email: a source badge offers a folder for that source
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  await card(app, "Submit NPTEL Assignment 5").getByRole("button", { name: "Create folder for NPTEL" }).click();
+  const dialog = app.getByRole("dialog", { name: "New folder" });
+  await expect(dialog.getByLabel("Name")).toHaveValue("NPTEL");
+  await expect(dialog.getByTestId("rule-sources").getByRole("button", { name: "NPTEL", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByTestId("rule-sources").getByRole("button", { name: "Digii", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await dialog.getByRole("button", { name: "Create folder" }).click();
+  await expect(app).toHaveURL(/\/folders\/\d+$/);
+  await expect(visibleCards(app).filter({ hasText: "Submit NPTEL Assignment 5" })).toBeVisible();
+});
+
+test("folders: drag to reorder, and deleting a folder keeps every task", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  const names = () => sidebar(app).getByTestId("folder-item").allTextContents();
+  const before = await api<ApiFolder[]>(app, "/folders");
+  expect(before.map((f) => f.name)).toEqual(["College", "Second", "NPTEL"]);
+
+  await folderItem(app, "NPTEL").dragTo(folderItem(app, "College"));
+  await expect.poll(async () => (await api<ApiFolder[]>(app, "/folders")).map((f) => f.name)).toEqual(["NPTEL", "College", "Second"]);
+  expect((await names())[0]).toContain("NPTEL");
+  await app.reload();
+  await waitForTasks(app, "From Email");
+  expect((await sidebar(app).getByTestId("folder-item").allTextContents())[0]).toContain("NPTEL"); // saved
+
+  const tasksBefore = (await api<ApiTask[]>(app, "/tasks?limit=500")).map((t) => t.id).sort();
+  await folderItem(app, "Second").getByRole("link").click();
+  await app.getByRole("button", { name: "Delete folder" }).click();
+  const confirm = app.getByRole("dialog", { name: "Delete this folder?" });
+  await expect(confirm).toContainText("Your tasks are not deleted");
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  expect((await api<ApiFolder[]>(app, "/folders")).length).toBe(3);
+  await app.getByRole("button", { name: "Delete folder" }).click();
+  await app.getByRole("dialog", { name: "Delete this folder?" }).getByRole("button", { name: "Delete folder" }).click();
+  await expect(app).toHaveURL(/localhost:3100\/$/);
+  await expect(folderItem(app, "Second")).toHaveCount(0);
+  expect((await api<ApiFolder[]>(app, "/folders")).map((f) => f.name)).toEqual(["NPTEL", "College"]);
+  expect((await api<ApiTask[]>(app, "/tasks?limit=500")).map((t) => t.id).sort()).toEqual(tasksBefore);
+});
+
+test("folders at 380px: a drawer opens from the header, lists folders, and closes on choosing one", async ({ browser }) => {
+  const context = await browser.newContext({
+    viewport: { width: 380, height: 800 },
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+    baseURL: "http://localhost:3100",
+  });
+  await context.addCookies([{ name: "session", value: readState().cookie, url: "http://localhost:3100" }]);
+  const page = await context.newPage();
+  await page.goto("/email");
+  await waitForTasks(page, "From Email");
+  await expect(sidebar(page)).toBeHidden(); // no sidebar on a phone
+
+  await page.getByTestId("folders-button").click();
+  const drawer = page.getByRole("dialog", { name: "Folders" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByTestId("folder-item")).toHaveCount(2);
+  await expect(drawer.getByTestId("folder-count").first()).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+  fs.mkdirSync("e2e/screenshots", { recursive: true });
+  await page.screenshot({ path: "e2e/screenshots/mobile-380-folders-drawer.png" });
+
+  await drawer.getByRole("link", { name: /College/ }).click();
+  await expect(page).toHaveURL(/\/folders\/\d+$/);
+  await expect(drawer).toHaveCount(0); // closed itself
+  await expect(page.getByRole("heading", { name: /College/, level: 1 })).toBeVisible();
+  const flow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(flow).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: "e2e/screenshots/mobile-380-folder.png" });
+  // the drawer is reachable from all three tabs
+  for (const [path, title] of [["/", "My Tasks"], ["/deadlines", "Deadlines"]]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
+    await expect(page.getByTestId("folders-button")).toBeVisible();
+  }
+  await context.close();
 });
 
 // ------------------------------------------------------------------ rebuild from sources

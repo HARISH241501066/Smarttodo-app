@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError, AUTH_EXPIRED_EVENT } from "@/lib/api";
-import type { Me, NotificationList, QuarantineItem, Task } from "@/lib/types";
+import type { Folder, Me, NotificationList, QuarantineItem, Task } from "@/lib/types";
 import { Spinner } from "@/components/ui";
 
 const REFRESH_MS = 30_000;
@@ -21,6 +21,9 @@ interface AppState {
   notifications: NotificationList;
   reviewCount: number;
   suspiciousCount: number;
+  folders: Folder[];
+  setFolders: (folders: Folder[]) => void;
+  refreshFolders: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   refreshCounts: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
@@ -43,6 +46,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationList>({ unread_count: 0, items: [] });
   const [reviewCount, setReviewCount] = useState(0);
   const [suspiciousCount, setSuspiciousCount] = useState(0);
+  const [folders, setFolders] = useState<Folder[]>([]);
 
   const refreshNotifications = useCallback(async () => {
     try {
@@ -52,14 +56,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshFolders = useCallback(async () => {
+    try {
+      setFolders(await api<Folder[]>("/folders"));
+    } catch {
+      /* the sidebar is best-effort; a failed refresh keeps the last list */
+    }
+  }, []);
+
   const refreshCounts = useCallback(async () => {
+    void refreshFolders(); // task changes move the folder counts and overdue dots
     const [review, quarantine] = await Promise.allSettled([
       api<Task[]>("/review"),
       api<QuarantineItem[]>("/quarantine"),
     ]);
     if (review.status === "fulfilled") setReviewCount(review.value.length);
     if (quarantine.status === "fulfilled") setSuspiciousCount(quarantine.value.length);
-  }, []);
+  }, [refreshFolders]);
 
   const markRead = useCallback(
     async (id: number) => {
@@ -125,6 +138,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             notifications,
             reviewCount,
             suspiciousCount,
+            folders,
+            setFolders,
+            refreshFolders,
             refreshNotifications,
             refreshCounts,
             markRead,
@@ -136,6 +152,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notifications,
       reviewCount,
       suspiciousCount,
+      folders,
+      refreshFolders,
       refreshNotifications,
       refreshCounts,
       markRead,

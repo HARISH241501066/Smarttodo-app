@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalIcon, MailIcon, PencilIcon, TrashIcon, UndoIcon, CheckIcon } from "@/components/icons";
+import { ExternalIcon, FolderIcon, MailIcon, PencilIcon, TrashIcon, UndoIcon, CheckIcon } from "@/components/icons";
 import { SubtaskChecklist } from "@/components/SubtaskChecklist";
 import { Button } from "@/components/ui";
 import { domainOf, formatCountdown } from "@/lib/time";
@@ -62,6 +62,11 @@ interface Props {
   onDelete?: (task: Task) => void;
   onDismiss?: (task: Task) => void;
   onViewEmail?: (task: Task) => void;
+  onAddToFolder?: (task: Task) => void;
+  onCreateFolder?: (task: Task) => void;
+  /** On a folder page: why the task is in this folder. */
+  folderInfo?: { pinned: boolean; byRule: boolean };
+  onUnpin?: (task: Task) => void;
   onSubtaskChange?: (change: SubtaskChange, ticked: boolean) => void;
   onError?: (message: string) => void;
 }
@@ -79,6 +84,10 @@ export function TaskCard({
   onDelete,
   onDismiss,
   onViewEmail,
+  onAddToFolder,
+  onCreateFolder,
+  folderInfo,
+  onUnpin,
   onSubtaskChange,
   onError,
 }: Props) {
@@ -105,9 +114,30 @@ export function TaskCard({
             {PRIORITY_LABEL[task.priority]}
           </span>
         ) : (
-          <SourceBadge source={task.source} name={task.source_name} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <SourceBadge source={task.source} name={task.source_name} />
+            {onCreateFolder && task.source_name ? (
+              <button
+                type="button"
+                onClick={() => onCreateFolder(task)}
+                className="text-xs font-semibold text-primary hover:underline"
+                aria-label={`Create folder for ${task.source_name}`}
+              >
+                + Create folder for this source
+              </button>
+            ) : null}
+          </div>
         )}
       </div>
+      {folderInfo ? (
+        <p className="mt-1 text-xs text-muted" data-testid="folder-reason">
+          {folderInfo.pinned && folderInfo.byRule
+            ? "Pinned here, and it matches the rules"
+            : folderInfo.pinned
+              ? "Pinned to this folder"
+              : "In this folder by rule"}
+        </p>
+      ) : null}
       {task.tag ? (
         <p className="mt-1">
           <span data-testid="task-tag" className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
@@ -177,6 +207,16 @@ export function TaskCard({
             <CheckIcon width={16} height={16} /> Done
           </Button>
         )}
+        {onAddToFolder ? (
+          <Button size="sm" variant="ghost" onClick={() => onAddToFolder(task)} disabled={busy} aria-label={`Add ${task.title} to a folder`}>
+            <FolderIcon width={16} height={16} /> Add to folder…
+          </Button>
+        ) : null}
+        {folderInfo?.pinned && onUnpin ? (
+          <Button size="sm" variant="ghost" onClick={() => onUnpin(task)} disabled={busy} aria-label={`Remove ${task.title} from this folder`}>
+            Remove from folder
+          </Button>
+        ) : null}
         {!manual && onViewEmail ? (
           <Button size="sm" variant="ghost" onClick={() => onViewEmail(task)} aria-label={`View full email for ${task.title}`}>
             <MailIcon width={16} height={16} /> View email
