@@ -59,6 +59,15 @@ def link_domain(url: str | None) -> str | None:
     return host.removeprefix("www.") or None
 
 
+class SubtaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    done: bool
+    position: int
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,6 +80,12 @@ class TaskOut(BaseModel):
     priority: Priority
     source: Source
     source_name: str | None = None
+    origin: Literal["manual", "email"] = "email"
+    tag: str | None = None
+    reminders_enabled: bool = True
+    subtasks: list[SubtaskOut] = []
+    subtasks_done: int = 0
+    subtasks_total: int = 0
     status: Status
     link: str | None
     link_type: Literal["action", "gmail"] | None
@@ -95,6 +110,12 @@ class TaskOut(BaseModel):
             priority=task.priority,
             source=task.source,
             source_name=task.source_name,
+            origin="manual" if task.source == "manual" else "email",
+            tag=task.tag,
+            reminders_enabled=task.reminders_enabled,
+            subtasks=[SubtaskOut.model_validate(s) for s in task.subtasks],
+            subtasks_done=sum(1 for s in task.subtasks if s.done),
+            subtasks_total=len(task.subtasks),
             status=task.status,
             link=task.link,
             link_type=task.link_type,
@@ -107,6 +128,15 @@ class TaskOut(BaseModel):
         )
 
 
+def _clean_subtask(value: str) -> str:
+    value = " ".join(value.split())
+    if not value:
+        raise ValueError("a subtask needs a title")
+    if len(value) > 300:
+        raise ValueError("a subtask title must be at most 300 characters")
+    return value
+
+
 def _clean_title(value: str | None) -> str | None:
     if value is None:
         return None
@@ -116,8 +146,24 @@ def _clean_title(value: str | None) -> str | None:
     return value
 
 
+MAX_TAG_CHARS = 40
+MAX_SUBTASKS = 100
+
+
+def _clean_tag(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = " ".join(value.split())
+    if len(value) > MAX_TAG_CHARS:
+        raise ValueError(f"tag must be at most {MAX_TAG_CHARS} characters")
+    return value or None
+
+
 class TaskCreate(BaseModel):
     title: str = Field(max_length=500)
+    tag: str | None = None
+    reminders_enabled: bool = True
+    subtasks: list[str] = Field(default_factory=list, max_length=MAX_SUBTASKS)
     notes: str | None = Field(default=None, max_length=5000)
     deadline: datetime | None = None
     priority: Priority | None = None  # default: urgent if due within 48h, otherwise regular
@@ -125,6 +171,12 @@ class TaskCreate(BaseModel):
 
     _title = field_validator("title")(_clean_title)
     _link = field_validator("link")(validate_http_url)
+    _tag = field_validator("tag")(_clean_tag)
+
+    @field_validator("subtasks")
+    @classmethod
+    def _subtasks(cls, values: list[str]) -> list[str]:
+        return [_clean_subtask(v) for v in values]
 
 
 class TaskUpdate(BaseModel):
@@ -136,9 +188,12 @@ class TaskUpdate(BaseModel):
     priority: Priority | None = None
     status: SettableStatus | None = None
     link: str | None = None
+    tag: str | None = None
+    reminders_enabled: bool | None = None
 
     _title = field_validator("title")(_clean_title)
     _link = field_validator("link")(validate_http_url)
+    _tag = field_validator("tag")(_clean_tag)
 
 
 class ReviewConfirm(BaseModel):
@@ -246,3 +301,32 @@ class SettingsBody(BaseModel):
         if len(set(names)) != len(names):
             raise ValueError("two sources have the same name")
         return values
+
+
+class SubtaskCreate(BaseModel):
+    title: str
+
+    _title = field_validator("title")(_clean_subtask)
+
+
+class SubtaskUpdate(BaseModel):
+    title: str | None = None
+    done: bool | None = None
+
+    @field_validator("title")
+    @classmethod
+    def _title(cls, value: str | None) -> str | None:
+        return None if value is None else _clean_subtask(value)
+
+
+class SubtaskReorder(BaseModel):
+    ids: list[int] = Field(max_length=MAX_SUBTASKS)
+
+
+class SubtaskChange(BaseModel):
+    """Result of a subtask change. `all_subtasks_done` is true when every subtask is now ticked:
+    the UI then asks "Mark the whole task done?". The task itself is never completed here."""
+
+    subtask: SubtaskOut | None
+    all_subtasks_done: bool
+    task: TaskOut

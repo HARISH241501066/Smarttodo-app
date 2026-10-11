@@ -13,6 +13,21 @@ export type Source =
   | "tracked";
 export type SourceType = "nptel" | "digii" | "internship" | "custom";
 
+export interface Subtask {
+  id: number;
+  title: string;
+  done: boolean;
+  position: number;
+}
+
+/** Answer to every subtask change. all_subtasks_done is true when every item is ticked: the UI
+ *  then asks "Mark the whole task done?" (the task is never completed automatically). */
+export interface SubtaskChange {
+  subtask: Subtask | null;
+  all_subtasks_done: boolean;
+  task: Task;
+}
+
 export interface Task {
   id: number;
   title: string;
@@ -23,6 +38,12 @@ export interface Task {
   priority: Priority;
   source: Source;
   source_name: string | null; // the user's name for the source, or the matched keyword
+  origin: "manual" | "email";
+  tag: string | null;
+  reminders_enabled: boolean;
+  subtasks: Subtask[];
+  subtasks_done: number;
+  subtasks_total: number;
   status: Status;
   link: string | null;
   link_type: "action" | "gmail" | null;
@@ -121,4 +142,14 @@ export interface TaskInput {
   link: string | null;
   notes: string | null;
   priority: Priority | null; // null = automatic
+  // Optional so the review form (which has none of these) can leave them out.
+  tag?: string | null;
+  reminders_enabled?: boolean;
+  subtasks?: SubtaskDraft[];
+}
+
+/** A subtask in the form: `id` is set for ones that already exist on the server. */
+export interface SubtaskDraft {
+  id?: number;
+  title: string;
 }

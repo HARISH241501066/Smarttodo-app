@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDetail } from "@/lib/api";
-import { buildConfirm, buildCreate, buildPatch, groupBySender } from "@/lib/tasks";
+import { buildConfirm, buildCreate, buildPatch, groupBySender, moveItem, subtasksChanged } from "@/lib/tasks";
 import {
   domainOf,
   formatCountdown,
@@ -88,6 +88,12 @@ const task = (over: Partial<Task> = {}): Task => ({
   priority: "important",
   source: "nptel",
   source_name: "NPTEL",
+  origin: "email",
+  tag: null,
+  reminders_enabled: true,
+  subtasks: [],
+  subtasks_done: 0,
+  subtasks_total: 0,
   status: "open",
   link: "https://example.com/q",
   link_type: "action",
@@ -163,5 +169,47 @@ describe("review grouping", () => {
 
   it("handles nothing", () => {
     expect(groupBySender([])).toEqual([]);
+  });
+});
+
+describe("tags, reminders and subtasks in request bodies", () => {
+  it("create includes them only when set", () => {
+    expect(buildCreate(input({ tag: "Uni", reminders_enabled: false, subtasks: [{ title: " A " }, { title: " " }] }))).toMatchObject({
+      tag: "Uni",
+      reminders_enabled: false,
+      subtasks: ["A"],
+    });
+    const plain = buildCreate(input({ tag: null, reminders_enabled: true, subtasks: [] }));
+    expect(plain).not.toHaveProperty("tag");
+    expect(plain).not.toHaveProperty("reminders_enabled");
+    expect(plain).not.toHaveProperty("subtasks");
+  });
+  it("patch sends a changed tag or reminder switch, and nothing when they are unchanged or absent", () => {
+    expect(buildPatch(task(), input({ tag: "Uni" }))).toEqual({ tag: "Uni" });
+    expect(buildPatch(task({ tag: "Uni" }), input({ tag: null }))).toEqual({ tag: null });
+    expect(buildPatch(task({ tag: "Uni" }), input({ tag: "Uni", reminders_enabled: true }))).toEqual({});
+    expect(buildPatch(task(), input({ reminders_enabled: false }))).toEqual({ reminders_enabled: false });
+    expect(buildPatch(task(), input())).toEqual({});
+  });
+});
+
+describe("subtask list helpers", () => {
+  const sub = (id: number, title: string) => ({ id, title, done: false, position: id });
+  it("moves an item and ignores impossible moves", () => {
+    expect(moveItem(["a", "b", "c"], 0, 2)).toEqual(["b", "c", "a"]);
+    expect(moveItem(["a", "b", "c"], 2, 0)).toEqual(["c", "a", "b"]);
+    const same = ["a", "b"];
+    expect(moveItem(same, 0, 5)).toBe(same);
+    expect(moveItem(same, 1, 1)).toBe(same);
+  });
+  it("notices renames, additions, removals and reordering", () => {
+    const t = task({ subtasks: [sub(1, "a"), sub(2, "b")], subtasks_total: 2 });
+    expect(subtasksChanged(t, [{ id: 1, title: "a" }, { id: 2, title: "b" }])).toBe(false);
+    expect(subtasksChanged(t, [{ id: 1, title: "a " }, { id: 2, title: "b" }])).toBe(false);
+    expect(subtasksChanged(t, [{ id: 1, title: "A" }, { id: 2, title: "b" }])).toBe(true);
+    expect(subtasksChanged(t, [{ id: 2, title: "b" }, { id: 1, title: "a" }])).toBe(true);
+    expect(subtasksChanged(t, [{ id: 1, title: "a" }])).toBe(true);
+    expect(subtasksChanged(t, [{ id: 1, title: "a" }, { id: 2, title: "b" }, { title: "c" }])).toBe(true);
+    expect(subtasksChanged(t, [{ id: 1, title: "a" }, { id: 2, title: "b" }, { title: "  " }])).toBe(false);
   });
 });

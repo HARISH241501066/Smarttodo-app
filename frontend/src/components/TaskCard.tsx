@@ -1,9 +1,10 @@
 "use client";
 
 import { ExternalIcon, MailIcon, PencilIcon, TrashIcon, UndoIcon, CheckIcon } from "@/components/icons";
+import { SubtaskChecklist } from "@/components/SubtaskChecklist";
 import { Button } from "@/components/ui";
 import { domainOf, formatCountdown } from "@/lib/time";
-import type { Priority, Source, Task } from "@/lib/types";
+import type { Priority, Source, SubtaskChange, Task } from "@/lib/types";
 
 export const SOURCE_LABEL: Record<Source, string> = {
   nptel: "NPTEL",
@@ -57,10 +58,29 @@ interface Props {
   onDone?: (task: Task) => void;
   onReopen?: (task: Task) => void;
   onEdit: (task: Task) => void;
-  onDelete: (task: Task) => void;
+  /** Manual tasks are deleted, email tasks are dismissed. */
+  onDelete?: (task: Task) => void;
+  onDismiss?: (task: Task) => void;
+  onSubtaskChange?: (change: SubtaskChange, ticked: boolean) => void;
+  onError?: (message: string) => void;
 }
 
-export function TaskCard({ task, now, busy, completed, onDone, onReopen, onEdit, onDelete }: Props) {
+const PRIORITY_LABEL: Record<Priority, string> = { urgent: "Urgent", important: "Important", regular: "Regular" };
+
+export function TaskCard({
+  task,
+  now,
+  busy,
+  completed,
+  onDone,
+  onReopen,
+  onEdit,
+  onDelete,
+  onDismiss,
+  onSubtaskChange,
+  onError,
+}: Props) {
+  const manual = task.origin === "manual";
   const countdown = task.deadline ? formatCountdown(task.deadline, now) : null;
   const isEmailLink = task.link_type === "gmail";
   const domain = task.link_domain ?? domainOf(task.link);
@@ -75,8 +95,24 @@ export function TaskCard({ task, now, busy, completed, onDone, onReopen, onEdit,
         <h3 className={`min-w-0 break-words text-base font-semibold leading-snug ${completed ? "line-through" : ""}`}>
           {task.title}
         </h3>
-        <SourceBadge source={task.source} name={task.source_name} />
+        {manual ? (
+          <span
+            data-testid="priority-badge"
+            className="shrink-0 rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-bold text-muted"
+          >
+            {PRIORITY_LABEL[task.priority]}
+          </span>
+        ) : (
+          <SourceBadge source={task.source} name={task.source_name} />
+        )}
       </div>
+      {task.tag ? (
+        <p className="mt-1">
+          <span data-testid="task-tag" className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+            #{task.tag}
+          </span>
+        </p>
+      ) : null}
 
       <p className="mt-1.5 text-sm">
         {countdown ? (
@@ -98,6 +134,15 @@ export function TaskCard({ task, now, busy, completed, onDone, onReopen, onEdit,
         )}
       </p>
       {task.notes ? <p className="mt-1 whitespace-pre-line break-words text-sm text-muted">{task.notes}</p> : null}
+
+      {onSubtaskChange ? (
+        <SubtaskChecklist
+          task={task}
+          disabled={busy}
+          onChange={onSubtaskChange}
+          onError={(m) => onError?.(m)}
+        />
+      ) : null}
 
       {task.link && !completed ? (
         <div className="mt-3">
@@ -133,9 +178,15 @@ export function TaskCard({ task, now, busy, completed, onDone, onReopen, onEdit,
         <Button size="sm" variant="ghost" onClick={() => onEdit(task)} disabled={busy} aria-label={`Edit ${task.title}`}>
           <PencilIcon width={16} height={16} /> Edit
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => onDelete(task)} disabled={busy} aria-label={`Delete ${task.title}`}>
-          <TrashIcon width={16} height={16} /> Delete
-        </Button>
+        {manual || completed ? (
+          <Button size="sm" variant="ghost" onClick={() => onDelete?.(task)} disabled={busy} aria-label={`Delete ${task.title}`}>
+            <TrashIcon width={16} height={16} /> Delete
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" onClick={() => onDismiss?.(task)} disabled={busy} aria-label={`Dismiss ${task.title}`}>
+            <TrashIcon width={16} height={16} /> Dismiss
+          </Button>
+        )}
       </div>
     </article>
   );

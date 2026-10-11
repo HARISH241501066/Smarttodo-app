@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useApp } from "@/components/AppProvider";
-import { GearIcon, InboxIcon, ListIcon, ShieldIcon } from "@/components/icons";
+import { CalendarIcon, GearIcon, InboxIcon, ShieldIcon, UserIcon } from "@/components/icons";
 import { NotificationBell } from "@/components/NotificationBell";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { InstallButton } from "@/components/InstallButton";
@@ -12,21 +12,19 @@ import { InstallButton } from "@/components/InstallButton";
 interface Tab {
   href: string;
   label: string;
-  short?: string; // shorter name for the phone's bottom bar
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
-  count?: number;
 }
 
 /** Header with the bell and theme toggle; navigation is a bottom bar on phones, inline from `sm`. */
 export function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { me, reviewCount, suspiciousCount } = useApp();
+  const attention = reviewCount + suspiciousCount;
 
   const tabs: Tab[] = [
-    { href: "/", label: "Tasks", Icon: ListIcon },
-    { href: "/review", label: "Needs review", short: "Review", Icon: InboxIcon, count: reviewCount },
-    { href: "/suspicious", label: "Suspicious", Icon: ShieldIcon, count: suspiciousCount },
-    { href: "/settings", label: "Settings", Icon: GearIcon },
+    { href: "/", label: "My Tasks", Icon: UserIcon },
+    { href: "/email", label: "From Email", Icon: InboxIcon },
+    { href: "/deadlines", label: "Deadlines", Icon: CalendarIcon },
   ];
 
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
@@ -53,7 +51,32 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="ml-auto flex items-center gap-0.5">
             <InstallButton />
             <ThemeToggle />
+            {attention > 0 ? (
+              <Link
+                href="/attention"
+                data-testid="attention-link"
+                aria-label={`Suspicious and needs review: ${attention} waiting`}
+                title="Suspicious and needs review"
+                className={`relative rounded-lg p-2 hover:bg-surface-2 ${pathname.startsWith("/attention") ? "text-primary" : "text-muted"}`}
+              >
+                <ShieldIcon width={20} height={20} />
+                <span
+                  data-testid="count-attention"
+                  className="absolute -right-0.5 -top-0.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white"
+                >
+                  {attention > 99 ? "99+" : attention}
+                </span>
+              </Link>
+            ) : null}
             <NotificationBell />
+            <Link
+              href="/settings"
+              aria-label="Settings"
+              title="Settings"
+              className={`rounded-lg p-2 hover:bg-surface-2 ${pathname.startsWith("/settings") ? "text-primary" : "text-muted"}`}
+            >
+              <GearIcon width={20} height={20} />
+            </Link>
           </div>
         </div>
         {me.needs_reauth ? (
@@ -70,7 +93,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
       >
         {tabs.map((tab) => (
           <TabLink key={tab.href} tab={tab} active={isActive(tab.href)} stacked />
@@ -81,27 +104,17 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 function TabLink({ tab, active, stacked }: { tab: Tab; active: boolean; stacked?: boolean }) {
-  const { href, label, Icon, count } = tab;
+  const { href, label, Icon } = tab;
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
-      className={`relative flex items-center justify-center rounded-lg text-sm font-semibold transition ${
+      className={`flex items-center justify-center rounded-lg text-sm font-semibold transition ${
         stacked ? "flex-col gap-0.5 px-1 py-2 text-[11px]" : "gap-2 px-3 py-2"
       } ${active ? "text-primary" : "text-muted hover:text-fg"} ${active && !stacked ? "bg-primary/10" : ""}`}
     >
-      <span className="relative">
-        <Icon width={stacked ? 22 : 18} height={stacked ? 22 : 18} />
-        {count ? (
-          <span
-            data-testid={`count-${href.replace("/", "") || "tasks"}`}
-            className="absolute -right-2.5 -top-1.5 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold leading-none text-white"
-          >
-            {count > 99 ? "99+" : count}
-          </span>
-        ) : null}
-      </span>
-      <span className="truncate">{stacked && tab.short ? tab.short : label}</span>
+      <Icon width={stacked ? 22 : 18} height={stacked ? 22 : 18} />
+      <span className="truncate">{label}</span>
     </Link>
   );
 }

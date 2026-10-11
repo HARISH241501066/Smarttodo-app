@@ -1,4 +1,5 @@
-import type { Priority, Task, TaskInput } from "@/lib/types";
+import { api } from "@/lib/api";
+import type { Priority, SubtaskChange, SubtaskDraft, Task, TaskInput } from "@/lib/types";
 
 export const GROUPS: { key: Priority; label: string; dot: string }[] = [
   { key: "urgent", label: "Urgent", dot: "bg-danger" },
@@ -13,6 +14,10 @@ export function buildCreate(input: TaskInput): Record<string, unknown> {
   if (input.link) body.link = input.link;
   if (input.notes) body.notes = input.notes;
   if (input.priority) body.priority = input.priority;
+  if (input.tag) body.tag = input.tag;
+  if (input.reminders_enabled === false) body.reminders_enabled = false;
+  const subtasks = (input.subtasks ?? []).map((s) => s.title.trim()).filter(Boolean);
+  if (subtasks.length) body.subtasks = subtasks;
   return body;
 }
 
@@ -28,6 +33,10 @@ export function buildPatch(task: Task, input: TaskInput): Record<string, unknown
   const originalLink = task.link_type === "gmail" ? null : task.link;
   if (input.link !== originalLink) patch.link = input.link;
   if (input.priority && input.priority !== task.priority) patch.priority = input.priority;
+  if (input.tag !== undefined && (input.tag ?? null) !== (task.tag ?? null)) patch.tag = input.tag;
+  if (input.reminders_enabled !== undefined && input.reminders_enabled !== task.reminders_enabled) {
+    patch.reminders_enabled = input.reminders_enabled;
+  }
   return patch;
 }
 
@@ -62,4 +71,62 @@ export function groupBySender(tasks: Task[]): SenderGroup[] {
     .map(([sender, items]) => ({ sender, tasks: items }))
     .sort((a, b) => b.tasks.length - a.tasks.length || a.sender.localeCompare(b.sender));
   return unknown.length ? [...named, { sender: null, tasks: unknown }] : named;
+}
+
+/** Move the item at `from` to position `to` (a new array; out-of-range moves change nothing). */
+export function moveItem<T>(items: T[], from: number, to: number): T[] {
+  if (from === to || from < 0 || to < 0 || from >= items.length || to >= items.length) return items;
+  const next = items.slice();
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
+/** True when the form's subtask list differs from the task's saved one (titles, order, count). */
+export function subtasksChanged(task: Task, draft: SubtaskDraft[]): boolean {
+  const clean = draft.filter((d) => d.title.trim());
+  if (clean.length !== task.subtasks.length) return true;
+  return clean.some((d, i) => d.id !== task.subtasks[i].id || d.title.trim() !== task.subtasks[i].title);
+}
+
+/** Make the server's subtasks match the form's list: delete what was removed, rename what changed,
+ *  add what is new, then put them in the form's order. Returns the task as it ends up. */
+export async function syncSubtasks(task: Task, draft: SubtaskDraft[]): Promise<Task> {
+  const wanted = draft.map((d) => ({ ...d, title: d.title.trim() })).filter((d) => d.title);
+  const keep = new Set(wanted.map((d) => d.id).filter((id): id is number => id !== undefined));
+  let latest = task;
+  for (const old of task.subtasks) {
+    if (!keep.has(old.id)) {
+      latest = (await api<SubtaskChange>(`/tasks/${task.id}/subtasks/${old.id}`, { method: "DELETE" })).task;
+    }
+  }
+  const order: number[] = [];
+  for (const item of wanted) {
+    if (item.id === undefined) {
+      const added = await api<SubtaskChange>(`/tasks/${task.id}/subtasks`, {
+        method: "POST",
+        json: { title: item.title },
+      });
+      latest = added.task;
+      order.push(added.subtask!.id);
+      continue;
+    }
+    const before = task.subtasks.find((s) => s.id === item.id);
+    if (before && before.title !== item.title) {
+      latest = (
+        await api<SubtaskChange>(`/tasks/${task.id}/subtasks/${item.id}`, {
+          method: "PATCH",
+          json: { title: item.title },
+        })
+      ).task;
+    }
+    order.push(item.id);
+  }
+  const current = latest.subtasks.map((s) => s.id);
+  if (order.length > 1 && order.some((id, i) => id !== current[i])) {
+    latest = (
+      await api<SubtaskChange>(`/tasks/${task.id}/subtasks/reorder`, { method: "PATCH", json: { ids: order } })
+    ).task;
+  }
+  return latest;
 }

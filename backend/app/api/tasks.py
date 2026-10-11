@@ -1,16 +1,17 @@
 """Task CRUD, done/dismiss and the needs-review queue; every query is scoped to the user."""
 
 from datetime import UTC, datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.filters.deadline import priority_for
 from app.filters.links import gmail_fallback
-from app.models import Task, User
+from app.models import Subtask, Task, User
 from app.notify.calendar import (
     CalendarApi,
     delete_event_for_removed_task,
@@ -24,6 +25,11 @@ from app.schemas.tasks import (
     ReviewConfirm,
     Source,
     Status,
+    SubtaskChange,
+    SubtaskCreate,
+    SubtaskOut,
+    SubtaskReorder,
+    SubtaskUpdate,
     TaskCreate,
     TaskOut,
     TaskUpdate,
@@ -35,6 +41,7 @@ router = APIRouter(tags=["tasks"])
 
 DEFAULT_LIMIT = 200
 MAX_LIMIT = 500
+MAX_SUBTASKS = 100
 
 
 def owned_task(session: Session, user: User, task_id: int) -> Task:
@@ -71,6 +78,7 @@ def list_tasks(
     status: Status | None = None,
     priority: Priority | None = None,
     source: Source | None = None,
+    origin: Literal["manual", "email"] | None = None,
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     offset: int = Query(0, ge=0),
     user: User = Depends(get_current_user),
@@ -86,8 +94,45 @@ def list_tasks(
         stmt = stmt.where(Task.priority == priority)
     if source:
         stmt = stmt.where(Task.source == source)
+    if origin == "manual":
+        stmt = stmt.where(Task.source == "manual")
+    elif origin == "email":
+        stmt = stmt.where(Task.source != "manual")
     stmt = stmt.order_by(Task.deadline.asc().nulls_last(), Task.created_at.desc(), Task.id.desc())
     return [TaskOut.from_task(t) for t in session.scalars(stmt.limit(limit).offset(offset))]
+
+
+@router.get("/deadlines", response_model=list[TaskOut])
+def deadlines(
+    include_done: bool = False,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> list[TaskOut]:
+    """Every open task, manual and email, soonest deadline first, no-deadline last. Overdue tasks
+    are included (they sort first). `include_done` adds completed tasks."""
+    if recompute_priorities(session, user_id=user.id):
+        session.commit()
+    statuses = ("open", "done") if include_done else ("open",)
+    stmt = (
+        select(Task)
+        .where(Task.user_id == user.id, Task.status.in_(statuses))
+        .order_by(Task.deadline.asc().nulls_last(), Task.created_at.desc(), Task.id.desc())
+    )
+    return [TaskOut.from_task(t) for t in session.scalars(stmt)]
+
+
+@router.get("/tags", response_model=list[str])
+def tags(
+    user: User = Depends(get_current_user), session: Session = Depends(get_session)
+) -> list[str]:
+    """Tags already used, for suggestions in the task form."""
+    rows = session.scalars(
+        select(Task.tag)
+        .where(Task.user_id == user.id, Task.tag.is_not(None))
+        .group_by(Task.tag)
+        .order_by(func.count().desc(), Task.tag)
+    )
+    return list(rows)
 
 
 @router.post("/tasks", response_model=TaskOut, status_code=201)
@@ -105,12 +150,15 @@ def create_task(
         notes=body.notes,
         source="manual",
         user_confirmed=True,
+        tag=body.tag,
+        reminders_enabled=body.reminders_enabled,
         deadline=deadline,
         priority=body.priority or priority_for("manual", deadline, now),
         status="open",
         confidence=1.0,
     )
     _set_link(task, body.link)
+    task.subtasks = [Subtask(title=title, position=i) for i, title in enumerate(body.subtasks)]
     session.add(task)
     session.flush()
     sync_reminders(session, task, now=now, created=True)
@@ -157,12 +205,18 @@ def update_task(
         task.priority = body.priority
     if "link" in sent:
         _set_link(task, body.link)
+    if "tag" in sent:
+        task.tag = body.tag
+    if "reminders_enabled" in sent:
+        if body.reminders_enabled is None:
+            raise HTTPException(422, "reminders_enabled cannot be null")
+        task.reminders_enabled = body.reminders_enabled
     if "status" in sent:
         task.status = body.status
         if body.status in ("done", "dismissed"):
             cancel_pending_reminders(session, task.id)
     task.updated_at = now
-    if "deadline" in sent or "status" in sent:  # regenerate the unsent reminders
+    if {"deadline", "status", "reminders_enabled"} & sent:  # regenerate the unsent reminders
         sync_reminders(session, task, now=now)
     session.commit()
     _sync_calendar(session, calendar, task)
@@ -255,3 +309,95 @@ def review_confirm(
     session.commit()
     _sync_calendar(session, calendar, task)
     return TaskOut.from_task(task)
+
+
+# ---------- subtasks (on manual and email tasks alike) ----------
+
+
+def _change(session: Session, task: Task, subtask: Subtask | None) -> SubtaskChange:
+    session.commit()
+    session.refresh(task)
+    done = bool(task.subtasks) and all(s.done for s in task.subtasks)
+    return SubtaskChange(
+        subtask=SubtaskOut.model_validate(subtask) if subtask is not None else None,
+        all_subtasks_done=done,
+        task=TaskOut.from_task(task),
+    )
+
+
+def _owned_subtask(task: Task, sub_id: int) -> Subtask:
+    sub = next((s for s in task.subtasks if s.id == sub_id), None)
+    if sub is None:
+        raise HTTPException(404, "Subtask not found")
+    return sub
+
+
+@router.post("/tasks/{task_id}/subtasks", response_model=SubtaskChange, status_code=201)
+def add_subtask(
+    task_id: int,
+    body: SubtaskCreate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> SubtaskChange:
+    task = owned_task(session, user, task_id)
+    if len(task.subtasks) >= MAX_SUBTASKS:
+        raise HTTPException(422, f"At most {MAX_SUBTASKS} subtasks per task")
+    position = max((s.position for s in task.subtasks), default=-1) + 1
+    sub = Subtask(title=body.title, position=position)
+    task.subtasks.append(sub)
+    session.flush()
+    return _change(session, task, sub)
+
+
+@router.patch("/tasks/{task_id}/subtasks/reorder", response_model=SubtaskChange)
+def reorder_subtasks(
+    task_id: int,
+    body: SubtaskReorder,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> SubtaskChange:
+    """`ids` must be exactly the task's subtask ids, in the new order."""
+    task = owned_task(session, user, task_id)
+    by_id = {s.id: s for s in task.subtasks}
+    if sorted(body.ids) != sorted(by_id):
+        raise HTTPException(422, "ids must list every subtask of the task exactly once")
+    for position, sub_id in enumerate(body.ids):
+        by_id[sub_id].position = position
+    return _change(session, task, None)
+
+
+@router.patch("/tasks/{task_id}/subtasks/{sub_id}", response_model=SubtaskChange)
+def update_subtask(
+    task_id: int,
+    sub_id: int,
+    body: SubtaskUpdate,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> SubtaskChange:
+    """Rename and/or tick. Ticking the last one sets all_subtasks_done; never completes the task."""
+    task = owned_task(session, user, task_id)
+    sub = _owned_subtask(task, sub_id)
+    sent = body.model_fields_set
+    if not sent:
+        raise HTTPException(422, "Nothing to update")
+    if "title" in sent:
+        if body.title is None:
+            raise HTTPException(422, "title cannot be null")
+        sub.title = body.title
+    if "done" in sent:
+        if body.done is None:
+            raise HTTPException(422, "done cannot be null")
+        sub.done = body.done
+    return _change(session, task, sub)
+
+
+@router.delete("/tasks/{task_id}/subtasks/{sub_id}", response_model=SubtaskChange)
+def delete_subtask(
+    task_id: int,
+    sub_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> SubtaskChange:
+    task = owned_task(session, user, task_id)
+    task.subtasks.remove(_owned_subtask(task, sub_id))
+    return _change(session, task, None)

@@ -18,7 +18,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 NAMING = {
     "ix": "ix_%(column_0_label)s",
@@ -98,6 +98,10 @@ class Task(Base):
     user_confirmed: Mapped[bool] = mapped_column(
         Boolean, server_default=text("false"), nullable=False
     )
+    tag: Mapped[str | None] = mapped_column(Text)  # free text; suggestions come from tags in use
+    reminders_enabled: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("true"), nullable=False
+    )
     priority: Mapped[str] = mapped_column(String(16), server_default="regular", nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), server_default="open", nullable=False)
@@ -106,6 +110,27 @@ class Task(Base):
     gcal_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
+    subtasks: Mapped[list["Subtask"]] = relationship(
+        order_by="Subtask.position, Subtask.id",
+        lazy="selectin",
+        passive_deletes=True,
+        cascade="all, delete-orphan",
+    )
+
+
+class Subtask(Base):
+    """A checklist item on a task (manual or email). Deleted with its task."""
+
+    __tablename__ = "subtasks"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    task_id: Mapped[int] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    done: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    position: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    created_at: Mapped[datetime] = _ts()
 
 
 class Reminder(Base):

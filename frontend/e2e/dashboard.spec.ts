@@ -41,10 +41,10 @@ async function api<T>(page: Page, path: string): Promise<T> {
 type ApiTask = { id: number; title: string; status: string; priority: string; link: string | null; deadline: string | null };
 
 /** A tab's badge. The bar is rendered twice (header and bottom bar); only one is visible. */
-const badge = (page: Page, key: "review" | "suspicious") => page.locator(`[data-testid="count-${key}"]:visible`);
+const badge = (page: Page, key: "attention") => page.locator(`[data-testid="count-${key}"]:visible`);
 
-async function waitForTasks(page: Page) {
-  await expect(page.getByRole("heading", { name: "Your tasks" })).toBeVisible();
+async function waitForTasks(page: Page, title = "My Tasks") {
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
   await expect(page.getByRole("status", { name: "Loading" })).toHaveCount(0);
 }
 
@@ -79,8 +79,8 @@ test("a signed-in visitor on the login page goes straight to the dashboard", asy
 // ------------------------------------------------------------------ task list
 
 test("tasks are grouped Urgent, Important and Regular with source badge, IST deadline and countdown", async ({ app }) => {
-  await app.goto("/");
-  await waitForTasks(app);
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
 
   const headings = await app.getByRole("heading", { level: 2 }).allTextContents();
   const groups = headings.filter((h) => /^(Urgent|Important|Regular)/.test(h)).map((h) => h.replace(/\d+$/, ""));
@@ -99,8 +99,8 @@ test('"Open & Complete" opens the correct link in a new tab, with its domain sho
   await context.route("https://onlinecourses.nptel.ac.in/**", (route) =>
     route.fulfill({ status: 200, contentType: "text/html", body: "<h1>NPTEL assignment</h1>" }),
   );
-  await app.goto("/");
-  await waitForTasks(app);
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
 
   const nptel = card(app, "Submit NPTEL Assignment 5");
   const button = nptel.getByRole("link", { name: "Open & Complete" });
@@ -113,17 +113,19 @@ test('"Open & Complete" opens the correct link in a new tab, with its domain sho
   expect(tab.url()).toBe("https://onlinecourses.nptel.ac.in/noc26_cs10/assignment/5");
   await expect(tab.getByRole("heading", { name: "NPTEL assignment" })).toBeVisible();
   await tab.close();
-  await expect(app).toHaveURL(/localhost:3100\/$/); // the dashboard stays where it was
+  await expect(app).toHaveURL(/localhost:3100\/email$/); // the dashboard stays where it was
 });
 
 test('a Gmail fallback link is labelled "Open email"; a task without a link says so', async ({ app }) => {
-  await app.goto("/");
-  await waitForTasks(app);
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
   const circular = card(app, "Read the exam circular");
   const link = circular.getByRole("link", { name: "Open email" });
   await expect(link).toHaveAttribute("href", "https://mail.google.com/mail/u/0/#all/seedcircular");
   await expect(circular.getByText("mail.google.com")).toBeVisible();
   await expect(circular.getByRole("link", { name: "Open & Complete" })).toHaveCount(0);
+  await app.goto("/");
+  await waitForTasks(app);
   await expect(card(app, "Edit me")).toContainText("No link");
   await expect(card(app, "Edit me").getByRole("link")).toHaveCount(0);
 });
@@ -134,8 +136,8 @@ test("create a task with a deadline and a link, then edit it", async ({ app }) =
   await app.goto("/");
   await waitForTasks(app);
 
-  await app.getByRole("button", { name: "Add task" }).click();
-  const dialog = app.getByRole("dialog", { name: "Add a task" });
+  await app.getByRole("button", { name: "New task" }).click();
+  const dialog = app.getByRole("dialog", { name: "New task", exact: true });
   await dialog.getByLabel("Title").fill("E2E created task");
   await dialog.getByLabel("Deadline (India time)").fill(istInput(6));
   await dialog.getByLabel("Link to complete it").fill("https://example.com/e2e-complete");
@@ -187,8 +189,8 @@ test("the form rejects an empty title and a non-http link without saving", async
   await waitForTasks(app);
   const before = (await api<ApiTask[]>(app, "/tasks?limit=500")).length;
 
-  await app.getByRole("button", { name: "Add task" }).click();
-  const dialog = app.getByRole("dialog", { name: "Add a task" });
+  await app.getByRole("button", { name: "New task" }).click();
+  const dialog = app.getByRole("dialog", { name: "New task", exact: true });
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog.getByRole("alert")).toContainText("Give the task a title");
 
@@ -256,7 +258,7 @@ test("the bell shows the unread count, opening a notification marks it read and 
   await expect(panel).toContainText("Daily digest");
 
   await panel.getByRole("button", { name: /Complete immediately: Submit NPTEL Assignment 5/ }).click();
-  await expect(app).toHaveURL(/localhost:3100\/$/); // ?task=ID was consumed
+  await expect(app).toHaveURL(/localhost:3100\/email$/); // sent to the email tab, ?task=ID consumed
   await expect(count).toHaveText("2");
   await expect(card(app, "Submit NPTEL Assignment 5")).toHaveClass(/flash/);
   const afterOne = await api<{ unread_count: number }>(app, "/notifications");
@@ -280,18 +282,19 @@ test("a notification for a task that is already done opens that task", async ({ 
 // ------------------------------------------------------------------ needs review
 
 test("needs review: confirm, edit and confirm, and dismiss", async ({ app }) => {
-  await app.goto("/review");
+  await app.goto("/attention");
+  const susp = (await api<unknown[]>(app, "/quarantine")).length;
   await expect(app.getByRole("heading", { name: "Needs review" })).toBeVisible();
   const cards = app.getByTestId("review-card");
   const start = (await api<ApiTask[]>(app, "/review")).length;
-  await expect(badge(app, "review")).toHaveText(String(start));
+  await expect(badge(app, "attention")).toHaveText(String(start + susp));
   await expect(cards).toHaveCount(start);
   await expect(cards.filter({ hasText: "Workshop invite" })).toContainText("none found");
 
   // confirm as-is: it leaves the list and shows up among the tasks
   await cards.filter({ hasText: "Workshop invite" }).getByRole("button", { name: "Confirm", exact: true }).click();
   await expect(cards.filter({ hasText: "Workshop invite" })).toHaveCount(0);
-  await expect(badge(app, "review")).toHaveText(String(start - 1));
+  await expect(badge(app, "attention")).toHaveText(String(start - 1 + susp));
 
   // edit then confirm
   await cards.filter({ hasText: "Seminar notice" }).getByRole("button", { name: /Edit & confirm/ }).click();
@@ -306,10 +309,10 @@ test("needs review: confirm, edit and confirm, and dismiss", async ({ app }) => 
   await cards.filter({ hasText: "Newsletter digest" }).getByRole("button", { name: "Dismiss" }).click();
   await expect(cards.filter({ hasText: "Newsletter digest" })).toHaveCount(0);
   await expect(cards).toHaveCount(start - 3);
-  await expect(badge(app, "review")).toHaveText(String(start - 3));
+  await expect(badge(app, "attention")).toHaveText(String(start - 3 + susp));
 
-  await app.getByRole("link", { name: "Tasks" }).first().click();
-  await waitForTasks(app);
+  await app.getByRole("link", { name: "From Email" }).first().click();
+  await waitForTasks(app, "From Email");
   await expect(card(app, "Workshop invite")).toBeVisible();
   await expect(card(app, "Seminar on 5G (confirmed)")).toBeVisible();
   await expect(card(app, "Seminar on 5G (confirmed)")).toContainText("Due in 3 days");
@@ -320,7 +323,8 @@ test("needs review: confirm, edit and confirm, and dismiss", async ({ app }) => 
 });
 
 test("needs review: confirm all and dismiss all from one sender", async ({ app }) => {
-  await app.goto("/review");
+  await app.goto("/attention");
+  const susp = (await api<unknown[]>(app, "/quarantine")).length;
   const groupA = app.getByRole("region", { name: "bulk-a@news.example.test" });
   const groupB = app.getByRole("region", { name: "bulk-b@promo.example.test" });
   await expect(groupA.getByTestId("review-card")).toHaveCount(3);
@@ -330,7 +334,7 @@ test("needs review: confirm all and dismiss all from one sender", async ({ app }
   await groupA.getByRole("button", { name: "Confirm all from this sender" }).click();
   await expect(app.getByRole("status").filter({ hasText: "Confirmed 3 from bulk-a@news.example.test" })).toBeVisible();
   await expect(groupA).toHaveCount(0);
-  await expect(badge(app, "review")).toHaveText(String(before - 3));
+  await expect(badge(app, "attention")).toHaveText(String(before - 3 + susp));
 
   // dismissing a whole sender asks first
   await groupB.getByRole("button", { name: "Dismiss all from this sender" }).click();
@@ -340,7 +344,7 @@ test("needs review: confirm all and dismiss all from one sender", async ({ app }
   await groupB.getByRole("button", { name: "Dismiss all from this sender" }).click();
   await app.getByRole("dialog", { name: "Dismiss 2 emails?" }).getByRole("button", { name: "Dismiss 2" }).click();
   await expect(groupB).toHaveCount(0);
-  await expect(badge(app, "review")).toHaveText(String(before - 5));
+  await expect(badge(app, "attention")).toHaveText(String(before - 5 + susp));
 
   const open = await api<ApiTask[]>(app, "/tasks?status=open&limit=500");
   expect(open.filter((t) => t.title.endsWith("(bulk confirm)")).length).toBe(3);
@@ -348,8 +352,8 @@ test("needs review: confirm all and dismiss all from one sender", async ({ app }
   expect(dismissed.filter((t) => t.title.endsWith("(bulk dismiss)")).length).toBe(2);
   expect((await api<ApiTask[]>(app, "/review")).length).toBe(before - 5);
 
-  await app.getByRole("link", { name: "Tasks" }).first().click();
-  await waitForTasks(app);
+  await app.getByRole("link", { name: "From Email" }).first().click();
+  await waitForTasks(app, "From Email");
   await expect(card(app, "Course notice 1 (bulk confirm)")).toBeVisible();
   await expect(card(app, "Promo 1")).toHaveCount(0);
 });
@@ -357,11 +361,11 @@ test("needs review: confirm all and dismiss all from one sender", async ({ app }
 // ------------------------------------------------------------------ suspicious
 
 test("suspicious: shows why each email was held; rescue creates a task, confirm scam closes one", async ({ app }) => {
-  await app.goto("/suspicious");
+  await app.goto("/attention");
   await expect(app.getByRole("heading", { name: "Suspicious" })).toBeVisible();
   const items = app.getByTestId("suspicious-card");
   await expect(items).toHaveCount(2);
-  await expect(badge(app, "suspicious")).toHaveText("2");
+  await expect(app.getByTestId("attention-link")).toBeVisible();
   const first = items.filter({ hasText: "NPTEL certificate fee" });
   await expect(first).toContainText("Asks for a registration, processing or similar fee");
   await expect(first).toContainText("nptel.help@gmail.com");
@@ -374,10 +378,9 @@ test("suspicious: shows why each email was held; rescue creates a task, confirm 
   await items.getByRole("button", { name: "Confirm scam" }).click();
   await expect(items).toHaveCount(0);
   await expect(app.getByText("Nothing suspicious")).toBeVisible();
-  await expect(badge(app, "suspicious")).toHaveCount(0);
-
-  await app.getByRole("link", { name: "Tasks" }).first().click();
-  await waitForTasks(app);
+  
+  await app.getByRole("link", { name: "From Email" }).first().click();
+  await waitForTasks(app, "From Email");
   const rescued = card(app, "NPTEL: Week 5 quiz is live");
   await expect(rescued).toBeVisible();
   await expect(rescued.getByRole("link", { name: "Open & Complete" })).toHaveAttribute(
@@ -523,13 +526,17 @@ test("watch keywords, block senders and the deadline toggle: add, reject bad ent
 });
 
 test('tasks with no deadline show a "No deadline" badge, and the badge carries the source name', async ({ app }) => {
-  await app.goto("/");
-  await waitForTasks(app);
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
   const digii = card(app, "Digii quiz without a date");
   await expect(digii.getByTestId("no-deadline")).toHaveText("No deadline");
   await expect(digii.getByTestId("source-badge")).toHaveText("Digii");
   await expect(app.locator("section", { has: app.getByRole("heading", { name: /^Important/ }) })).toContainText("Digii quiz without a date");
+  await app.goto("/");
+  await waitForTasks(app);
   await expect(card(app, "Edit me").getByTestId("no-deadline")).toBeVisible();
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
   // tasks that do have a deadline never show the badge
   await expect(card(app, "Submit NPTEL Assignment 5").getByTestId("no-deadline")).toHaveCount(0);
   await expect(card(app, "Read the exam circular").getByTestId("no-deadline")).toHaveCount(0);
@@ -614,7 +621,7 @@ test("at 380px wide every page is usable: nothing overflows and the controls are
   const page = await context.newPage();
   fs.mkdirSync("e2e/screenshots", { recursive: true });
 
-  for (const [path, name] of [["/", "tasks"], ["/review", "review"], ["/suspicious", "suspicious"], ["/settings", "settings"]]) {
+  for (const [path, name] of [["/", "tasks"], ["/email", "email"], ["/deadlines", "deadlines"], ["/attention", "attention"], ["/settings", "settings"]]) {
     await page.goto(path);
     await expect(page.getByRole("status", { name: /Loading/ })).toHaveCount(0);
     await page.waitForTimeout(300);
@@ -623,13 +630,24 @@ test("at 380px wide every page is usable: nothing overflows and the controls are
     await page.screenshot({ path: `e2e/screenshots/mobile-380-${name}.png` });
   }
 
-  await page.goto("/");
-  await waitForTasks(page);
+  await page.goto("/email");
+  await waitForTasks(page, "From Email");
   const nav = page.getByRole("navigation", { name: "Main" }).last();
   await expect(nav).toBeVisible();
-  for (const label of ["Tasks", "Review", "Suspicious", "Settings"]) {
+  for (const label of ["My Tasks", "From Email", "Deadlines"]) {
     await expect(nav.getByRole("link", { name: label })).toBeVisible();
   }
+  await nav.getByRole("link", { name: "Deadlines" }).click();
+  await expect(page).toHaveURL(/\/deadlines$/);
+  await expect(page.getByRole("heading", { name: "Deadlines", level: 1 })).toBeVisible();
+  await page.screenshot({ path: "e2e/screenshots/mobile-380-bottom-nav.png" });
+  await nav.getByRole("link", { name: "My Tasks" }).click();
+  await expect(page).toHaveURL(/localhost:3100\/$/);
+  await expect(nav.getByRole("link", { name: "My Tasks" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(page.getByTestId("attention-link")).toBeVisible();
+  await nav.getByRole("link", { name: "From Email" }).click();
+  await waitForTasks(page, "From Email");
   // the primary action is a full-width, thumb-sized button
   const open = card(page, "Submit NPTEL Assignment 5").getByRole("link", { name: "Open & Complete" });
   const box = (await open.boundingBox())!;
@@ -735,6 +753,233 @@ test("the service worker shows a pushed notification that carries the task's lin
   await context.setOffline(false);
 });
 
+// ------------------------------------------------------------------ subtasks
+
+test("subtasks: create a task with 3 subtasks, tick them, watch the progress bar, get asked before completing", async ({ app }) => {
+  await app.goto("/");
+  await waitForTasks(app);
+  await app.getByRole("button", { name: "New task" }).click();
+  const dialog = app.getByRole("dialog", { name: "New task", exact: true });
+  await dialog.getByLabel("Title").fill("Write the report");
+  await dialog.getByLabel("Deadline (India time)").fill(istInput(3));
+  await dialog.getByLabel("Tag").fill("Uni");
+  for (const sub of ["Outline", "Draft", "Proofread"]) {
+    await dialog.getByLabel("New subtask").fill(sub);
+    await dialog.getByRole("button", { name: "Add subtask" }).click();
+  }
+  await expect(dialog.getByTestId("subtask-row")).toHaveCount(3);
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(dialog).toHaveCount(0);
+
+  const task = card(app, "Write the report");
+  await expect(task.getByTestId("task-tag")).toHaveText("#Uni");
+  await expect(task.getByTestId("priority-badge")).toHaveText("Regular");
+  await expect(task).toContainText(/Due in 2d/);
+  await expect(task.getByTestId("subtask-count")).toHaveText("0/3");
+  await expect(task.getByRole("progressbar", { name: "Subtasks done" })).toHaveAttribute("aria-valuenow", "0");
+
+  await task.getByRole("button", { name: "Show checklist" }).click();
+  const checks = task.getByRole("checkbox");
+  await expect(checks).toHaveCount(3);
+  await checks.nth(0).click();
+  await expect(task.getByTestId("subtask-count")).toHaveText("1/3");
+  await expect(task.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "1");
+  await checks.nth(1).click();
+  await expect(task.getByTestId("subtask-count")).toHaveText("2/3");
+  const prompt = app.getByRole("dialog", { name: "Mark the whole task done?" });
+  await expect(prompt).toHaveCount(0); // not yet
+
+  await checks.nth(2).click();
+  await expect(task.getByTestId("subtask-count")).toHaveText("3/3");
+  await expect(prompt).toBeVisible();
+  // saying no leaves the task open
+  await prompt.getByRole("button", { name: "Cancel" }).click();
+  await expect(task).toBeVisible();
+  const stored = (await api<ApiTask[]>(app, "/tasks?origin=manual&limit=500")).find((t) => t.title === "Write the report")!;
+  expect(stored.status).toBe("open");
+
+  // untick and tick again: asked again; yes completes it
+  await checks.nth(2).click();
+  await expect(task.getByTestId("subtask-count")).toHaveText("2/3");
+  await checks.nth(2).click();
+  await app.getByRole("dialog", { name: "Mark the whole task done?" }).getByRole("button", { name: "Mark task done" }).click();
+  await expect(card(app, "Write the report")).toHaveCount(0);
+  const after = (await api<ApiTask[]>(app, "/tasks?origin=manual&status=done&limit=500")).find((t) => t.title === "Write the report");
+  expect(after?.status).toBe("done");
+});
+
+test("subtasks: the form edits them (rename, delete, reorder by drag) and keeps reminders off and a tag", async ({ app }) => {
+  const res = await app.request.post("/api/tasks", {
+    data: { title: "Form edit task", tag: "Home", subtasks: ["one", "two", "three"], reminders_enabled: false },
+  });
+  expect(res.ok()).toBeTruthy();
+  await app.goto("/");
+  await waitForTasks(app);
+  await card(app, "Form edit task").getByRole("button", { name: "Edit Form edit task" }).click();
+  const edit = app.getByRole("dialog", { name: "Edit task" });
+  await expect(edit.getByLabel("Remind me about this task")).not.toBeChecked();
+  await expect(edit.getByLabel("Tag")).toHaveValue("Home");
+  await expect(edit.getByTestId("subtask-row")).toHaveCount(3);
+
+  await edit.getByRole("textbox", { name: "Subtask 2", exact: true }).fill("two renamed");
+  await edit.getByRole("button", { name: "Delete subtask 3" }).click();
+  await edit.getByLabel("New subtask").fill("four");
+  await edit.getByRole("button", { name: "Add subtask" }).click();
+  // drag the last row to the top
+  await edit.getByTestId("subtask-row").nth(2).dragTo(edit.getByTestId("subtask-row").nth(0));
+  await expect(edit.getByRole("textbox", { name: "Subtask 1", exact: true })).toHaveValue("four");
+  await edit.getByRole("button", { name: "Save" }).click();
+  await expect(edit).toHaveCount(0);
+
+  const stored = (await api<(ApiTask & { subtasks: { title: string }[]; reminders_enabled: boolean; tag: string })[]>(app, "/tasks?origin=manual&limit=500")).find((t) => t.title === "Form edit task")!;
+  expect(stored.subtasks.map((s) => s.title)).toEqual(["four", "one", "two renamed"]);
+  expect(stored).toMatchObject({ reminders_enabled: false, tag: "Home" });
+  await expect(card(app, "Form edit task").getByTestId("subtask-count")).toHaveText("0/3");
+
+  // the new-task form suggests tags already in use
+  await app.getByRole("button", { name: "New task" }).click();
+  const create = app.getByRole("dialog", { name: "New task", exact: true });
+  await expect(create.locator("datalist option[value='Home']")).toHaveCount(1);
+  await expect(create.locator("datalist option[value='Uni']")).toHaveCount(1);
+  await app.keyboard.press("Escape");
+});
+
+test("subtasks: add one to an email task, and it counts", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  const task = card(app, "Submit NPTEL Assignment 5");
+  await expect(task.getByTestId("subtask-count")).toHaveCount(0);
+  await expect(task.getByRole("button", { name: /Dismiss/ })).toBeVisible(); // email tasks are dismissed, not deleted
+  await expect(task.getByRole("button", { name: /^Delete/ })).toHaveCount(0);
+  await task.getByRole("button", { name: "Add a checklist" }).click();
+  await task.getByLabel("Add a subtask to Submit NPTEL Assignment 5").fill("Revise week 5 notes");
+  await task.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(task.getByTestId("subtask-count")).toHaveText("0/1");
+  await task.getByRole("checkbox", { name: "Revise week 5 notes" }).click();
+  await expect(task.getByTestId("subtask-count")).toHaveText("1/1");
+  await app.getByRole("dialog", { name: "Mark the whole task done?" }).getByRole("button", { name: "Cancel" }).click();
+
+  const stored = (await api<{ title: string; subtasks_total: number; subtasks_done: number; status: string }[]>(app, "/tasks?origin=email&limit=500")).find((t) => t.title === "Submit NPTEL Assignment 5")!;
+  expect(stored).toMatchObject({ subtasks_total: 1, subtasks_done: 1, status: "open" });
+  await app.reload();
+  await waitForTasks(app, "From Email");
+  await expect(card(app, "Submit NPTEL Assignment 5").getByTestId("subtask-count")).toHaveText("1/1");
+
+  // email tasks edit title and deadline only
+  await card(app, "Submit NPTEL Assignment 5").getByRole("button", { name: /^Edit/ }).click();
+  const edit = app.getByRole("dialog", { name: "Edit email task" });
+  await expect(edit.getByLabel("Tag")).toHaveCount(0);
+  await expect(edit.getByLabel("Deadline (India time)")).toBeVisible();
+  await app.keyboard.press("Escape");
+});
+
+// ------------------------------------------------------------------ deadlines
+
+test("deadlines: groups, mixed deadline order, filters, quick done and show completed", async ({ app }) => {
+  const at = (days: number, hourIst: number) => {
+    const d = new Date(Date.now() + days * 86_400_000 + 5.5 * 3_600_000);
+    d.setUTCHours(hourIst, 0, 0, 0);
+    return new Date(d.getTime() - 5.5 * 3_600_000).toISOString();
+  };
+  const create = async (title: string, deadline: string | null) => {
+    const res = await app.request.post("/api/tasks", { data: { title, ...(deadline ? { deadline } : {}) } });
+    expect(res.ok()).toBeTruthy();
+  };
+  await create("DL overdue manual", new Date(Date.now() - 2 * 86_400_000).toISOString());
+  await create("DL today manual", new Date(Date.now() + 120_000).toISOString());
+  await create("DL tomorrow manual", at(1, 12));
+  await create("DL week manual", at(3, 12));
+  await create("DL later manual", at(20, 12));
+  await create("DL none manual", null);
+
+  await app.goto("/deadlines");
+  await expect(app.getByRole("heading", { name: "Deadlines", level: 1 })).toBeVisible();
+  await expect(app.getByTestId("deadline-row").first()).toBeVisible();
+
+  const group = (key: string) => app.getByTestId(`group-${key}`);
+  await expect(group("overdue").getByRole("heading", { name: /Overdue/ })).toHaveClass(/text-danger/);
+  await expect(group("overdue")).toContainText("DL overdue manual");
+  await expect(group("overdue")).toContainText("Overdue by");
+  await expect(group("today")).toContainText("DL today manual");
+  await expect(group("tomorrow")).toContainText("DL tomorrow manual");
+  await expect(group("week")).toContainText("DL week manual");
+  await expect(group("later")).toContainText("DL later manual");
+  await expect(group("none")).toContainText("DL none manual");
+  await expect(group("none")).toContainText("Digii quiz without a date");
+
+  // manual and email tasks are mixed, in the same order the API gives
+  const dom = await app.getByTestId("deadline-row").evaluateAll((rows) =>
+    rows.map((r) => ({ title: r.querySelector("p")?.textContent ?? "", origin: r.getAttribute("data-origin") })),
+  );
+  const apiOrder = (await api<ApiTask[]>(app, "/deadlines")).map((t) => t.title);
+  expect(dom.map((r) => r.title)).toEqual(apiOrder);
+  expect(new Set(dom.map((r) => r.origin))).toEqual(new Set(["manual", "email"]));
+  const titles = dom.map((r) => r.title);
+  expect(titles.indexOf("DL week manual")).toBeLessThan(titles.indexOf("Fill the hackathon registration form")); // +3d before +5d
+  expect(titles.indexOf("Fill the hackathon registration form")).toBeLessThan(titles.indexOf("Read the exam circular")); // +5d before +10d
+  expect(titles.indexOf("Read the exam circular")).toBeLessThan(titles.indexOf("DL later manual")); // +10d before +20d
+  // each row shows origin, tag/source, IST deadline
+  const email = app.getByTestId("deadline-row").filter({ hasText: "Fill the hackathon registration form" });
+  await expect(email).toHaveAttribute("data-origin", "email");
+  await expect(email).toContainText("IST");
+  await expect(email.getByRole("link", { name: /Open Fill the hackathon/ })).toHaveAttribute("href", "https://forms.gle/Hackathon26");
+  const nptel = app.getByTestId("deadline-row").filter({ hasText: "Submit NPTEL Assignment 5" });
+  await expect(nptel).toContainText("NPTEL");
+  await expect(nptel.getByTestId("subtask-progress")).toContainText("1/1");
+
+  // filters
+  await app.getByRole("button", { name: "My Tasks", exact: true }).click();
+  await expect(app.getByTestId("deadline-row").filter({ hasText: "Fill the hackathon" })).toHaveCount(0);
+  await expect(app.getByTestId("deadline-row").filter({ hasText: "DL week manual" })).toHaveCount(1);
+  for (const row of await app.getByTestId("deadline-row").all()) await expect(row).toHaveAttribute("data-origin", "manual");
+  await app.getByRole("button", { name: "From Email", exact: true }).click();
+  await expect(app.getByTestId("deadline-row").filter({ hasText: "DL week manual" })).toHaveCount(0);
+  for (const row of await app.getByTestId("deadline-row").all()) await expect(row).toHaveAttribute("data-origin", "email");
+  await app.getByRole("button", { name: "All", exact: true }).click();
+
+  // quick done, and the completed toggle
+  await expect(app.getByText("Completed", { exact: true })).toHaveCount(0);
+  await app.getByRole("checkbox", { name: "Mark DL later manual done" }).click();
+  await expect(app.getByTestId("deadline-row").filter({ hasText: "DL later manual" })).toHaveCount(0);
+  await app.getByLabel("Show completed").check();
+  const completed = group("completed");
+  await expect(completed).toContainText("DL later manual");
+  await completed.getByRole("checkbox", { name: "Reopen DL later manual" }).click();
+  await expect(group("later")).toContainText("DL later manual");
+  await app.getByLabel("Show completed").uncheck();
+});
+
+// ------------------------------------------------------------------ the shield
+
+test("shield icon: shown only while Suspicious or Needs review have items, and opens both lists", async ({ app }) => {
+  await app.goto("/email");
+  await waitForTasks(app, "From Email");
+  const shield = app.getByTestId("attention-link");
+  await expect(shield).toBeVisible();
+  const items = (await api<unknown[]>(app, "/review")).length + (await api<unknown[]>(app, "/quarantine")).length;
+  expect(items).toBeGreaterThan(0);
+  await expect(badge(app, "attention")).toHaveText(String(items));
+  await expect(app.getByRole("navigation", { name: "Main" }).first().getByRole("link", { name: /Suspicious|Review/ })).toHaveCount(0);
+
+  await shield.click();
+  await expect(app).toHaveURL(/\/attention$/);
+  await expect(app.getByRole("heading", { name: "Needs your attention", level: 1 })).toBeVisible();
+  await expect(app.getByRole("heading", { name: "Suspicious", level: 2 })).toBeVisible();
+  await expect(app.getByRole("heading", { name: "Needs review", level: 2 })).toBeVisible();
+
+  // clear both lists: the icon goes away
+  for (const t of await api<{ id: number }[]>(app, "/review")) {
+    expect((await app.request.post(`/api/tasks/${t.id}/dismiss`)).ok()).toBeTruthy();
+  }
+  for (const q of await api<{ id: number }[]>(app, "/quarantine")) {
+    expect((await app.request.post(`/api/quarantine/${q.id}/confirm-scam`)).ok()).toBeTruthy();
+  }
+  await app.goto("/");
+  await waitForTasks(app);
+  await expect(app.getByTestId("attention-link")).toHaveCount(0);
+  await expect(app.getByRole("link", { name: "Settings" })).toBeVisible(); // the gear stays
+});
+
 // ------------------------------------------------------------------ rebuild from sources
 
 test("rebuild from sources: asks first, reports counts, keeps the user's own tasks, and is repeatable", async ({ app }) => {
@@ -790,8 +1035,8 @@ test("rebuild from sources: asks first, reports counts, keeps the user's own tas
   await app.getByRole("dialog", { name: "Rebuild finished" }).getByRole("button", { name: "Close" }).last().click();
   expect((await api<ApiTask[]>(app, "/tasks?limit=500")).map((t) => t.id).sort()).toEqual(before);
 
-  await app.getByRole("link", { name: "Tasks" }).first().click();
-  await waitForTasks(app);
+  await app.getByRole("link", { name: "From Email" }).first().click();
+  await waitForTasks(app, "From Email");
   await expect(card(app, "New Quiz Published: Week 9 Quiz").getByTestId("source-badge")).toHaveText("Digii");
 });
 

@@ -30,7 +30,7 @@ def sync_reminders(
         sms_enabled = get_settings().sms_enabled
 
     session.execute(delete(Reminder).where(Reminder.task_id == task.id, Reminder.sent_at.is_(None)))
-    if task.status != "open":
+    if task.status != "open" or not task.reminders_enabled:
         return 0
 
     email_sent = session.scalar(

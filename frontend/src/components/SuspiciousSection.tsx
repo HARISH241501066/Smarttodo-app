@@ -10,7 +10,7 @@ import { useLoader, useNow } from "@/lib/hooks";
 import { timeAgo } from "@/lib/time";
 import type { QuarantineItem, RescueResult } from "@/lib/types";
 
-export default function SuspiciousPage() {
+export function SuspiciousSection() {
   const { refreshCounts, refreshNotifications } = useApp();
   const toast = useToast();
   const now = useNow(60_000);
@@ -54,9 +54,9 @@ export default function SuspiciousPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <section aria-label="Suspicious" className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Suspicious</h1>
+        <h2 className="text-lg font-bold">Suspicious</h2>
         <p className="mt-1 text-sm text-muted">
           These emails looked like scams or impersonation, so no task was made. Don&apos;t click anything in
           them. If one is genuine, rescue it.
@@ -81,7 +81,7 @@ export default function SuspiciousPage() {
             data-testid="suspicious-card"
             className="rounded-xl border border-l-4 border-line border-l-danger bg-surface p-4 shadow-sm"
           >
-            <h2 className="break-words font-semibold leading-snug">{item.subject || "(no subject)"}</h2>
+            <h3 className="break-words font-semibold leading-snug">{item.subject || "(no subject)"}</h3>
             <p className="mt-0.5 break-all text-sm text-muted">From: {item.sender || "unknown sender"}</p>
             <p className="mt-0.5 text-xs text-muted">
               Risk score {item.score ?? "?"} · {timeAgo(item.created_at, now)}
@@ -105,6 +105,6 @@ export default function SuspiciousPage() {
           </article>
         ))
       )}
-    </div>
+    </section>
   );
 }

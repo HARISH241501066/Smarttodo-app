@@ -12,7 +12,7 @@ import { buildConfirm, groupBySender } from "@/lib/tasks";
 import { domainOf } from "@/lib/time";
 import type { Task, TaskInput } from "@/lib/types";
 
-export default function ReviewPage() {
+export function ReviewSection() {
   const { refreshCounts, refreshNotifications } = useApp();
   const toast = useToast();
   const { data: tasks, setData: setTasks, error } = useLoader<Task[]>("/review");
@@ -87,9 +87,9 @@ export default function ReviewPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <section aria-label="Needs review" className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">Needs review</h1>
+        <h2 className="text-lg font-bold">Needs review</h2>
         <p className="mt-1 text-sm text-muted">
           Emails that give several different deadlines. Confirm the ones that are real tasks and fix the
           date if needed.
@@ -111,10 +111,10 @@ export default function ReviewPage() {
             className="space-y-3"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="min-w-0 break-all text-sm font-bold text-muted">
+              <h3 className="min-w-0 break-all text-sm font-bold text-muted">
                 {group.sender ?? "Sender not recorded"}{" "}
                 <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs">{group.tasks.length}</span>
-              </h2>
+              </h3>
               {group.sender && group.tasks.length > 1 ? (
                 <div className="flex gap-2">
                   <Button
@@ -145,7 +145,7 @@ export default function ReviewPage() {
                   className="rounded-xl border border-line bg-surface p-4 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="min-w-0 break-words font-semibold leading-snug">{task.title}</h3>
+                    <h4 className="min-w-0 break-words font-semibold leading-snug">{task.title}</h4>
                     <SourceBadge source={task.source} name={task.source_name} />
                   </div>
                   <dl className="mt-2 space-y-0.5 text-sm">
@@ -211,6 +211,6 @@ export default function ReviewPage() {
           onCancel={() => setBulk(null)}
         />
       ) : null}
-    </div>
+    </section>
   );
 }
