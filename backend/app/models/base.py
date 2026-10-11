@@ -31,6 +31,7 @@ TASK_SOURCES = ("manual", "nptel", "internship", "gform", "college", "other")
 TASK_PRIORITIES = ("urgent", "important", "regular")
 TASK_STATUSES = ("open", "done", "needs_review", "dismissed")
 QUARANTINE_STATUSES = ("held", "rescued", "confirmed_scam")
+LINK_TYPES = ("action", "gmail")
 PROCESSED_DECISIONS = ("passed", "quarantined", "skipped", "failed")
 
 
@@ -66,6 +67,7 @@ class Task(Base):
         CheckConstraint(_in("source", TASK_SOURCES), name="source"),
         CheckConstraint(_in("priority", TASK_PRIORITIES), name="priority"),
         CheckConstraint(_in("status", TASK_STATUSES), name="status"),
+        CheckConstraint(_in("link_type", LINK_TYPES), name="link_type"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -77,6 +79,9 @@ class Task(Base):
     source: Mapped[str] = mapped_column(String(16), server_default="other", nullable=False)
     source_ref: Mapped[str | None] = mapped_column(String(255))
     link: Mapped[str | None] = mapped_column(Text)
+    link_type: Mapped[str | None] = mapped_column(String(16))
+    link_confidence: Mapped[float | None] = mapped_column(Float)
+    source_received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     priority: Mapped[str] = mapped_column(String(16), server_default="regular", nullable=False)
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(16), server_default="open", nullable=False)

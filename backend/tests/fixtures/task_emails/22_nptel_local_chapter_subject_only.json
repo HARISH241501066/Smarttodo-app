@@ -1,0 +1,44 @@
+{
+  "id": "task22",
+  "threadId": "thr-task22",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767304800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "NPTEL local chapter: enrol now"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 124,
+          "data": "PGh0bWw-PGJvZHk-PHA-RW5yb2wgYnkgMTIgSmFuIDIwMjYuPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vbGMuY29sbGVnZS5leGFtcGxlLmVkdS9ucHRlbC9lbnJvbGwiPkFwcGx5PC9hPjwvcD48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

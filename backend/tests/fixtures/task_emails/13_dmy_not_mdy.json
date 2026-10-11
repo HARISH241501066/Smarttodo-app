@@ -1,0 +1,34 @@
+{
+  "id": "task13",
+  "threadId": "thr-task13",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767272400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Registration"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 22,
+      "data": "TGFzdCBkYXRlOiAwNS8xMC8yMDI2Lg"
+    }
+  }
+}

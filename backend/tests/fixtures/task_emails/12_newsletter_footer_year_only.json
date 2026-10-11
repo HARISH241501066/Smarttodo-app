@@ -1,0 +1,44 @@
+{
+  "id": "task12",
+  "threadId": "thr-task12",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767268800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Weekly digest"
+      },
+      {
+        "name": "From",
+        "value": "Acme News <news@acme-news.example>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 205,
+          "data": "PGh0bWw-PGJvZHk-PHA-VGhpcyB3ZWVrIGluIHRlY2guPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vYWNtZS1uZXdzLmV4YW1wbGUvdW5zdWJzY3JpYmUiPlVuc3Vic2NyaWJlPC9hPiA8YSBocmVmPSJodHRwczovL2FjbWUtbmV3cy5leGFtcGxlL3ByaXZhY3kiPlByaXZhY3k8L2E-PC9wPjxwPiZjb3B5OyAyMDI2IEFjbWUgTmV3czwvcD48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

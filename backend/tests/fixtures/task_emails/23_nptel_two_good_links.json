@@ -1,0 +1,44 @@
+{
+  "id": "task23",
+  "threadId": "thr-task23",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767308400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Assignment 4 is open"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 445,
+          "data": "PGh0bWw-PGJvZHk-PHA-TGFzdCBkYXRlIHRvIHN1Ym1pdDogMzAgSmFuIDIwMjYuPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vb25saW5lY291cnNlcy5ucHRlbC5hYy5pbi9ub2MyNl9jczEwL2NvdXJzZSI-VmlldyBjb3Vyc2U8L2E-PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vb25saW5lY291cnNlcy5ucHRlbC5hYy5pbi9ub2MyNl9jczEwL2Fzc2lnbm1lbnQvNCI-U3VibWl0IGFzc2lnbm1lbnQ8L2E-PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuYWMuaW4vdW5zdWJzY3JpYmU_dT0xIj5VbnN1YnNjcmliZTwvYT4gfCA8YSBocmVmPSJodHRwczovL25wdGVsLmFjLmluL3ByaXZhY3kiPlByaXZhY3kgcG9saWN5PC9hPiB8IDxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuYWMuaW4vdGVybXMiPlRlcm1zPC9hPjwvcD48cD4mY29weTsgMjAyNSBOUFRFTDwvcD48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

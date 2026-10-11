@@ -205,4 +205,5 @@ def test_every_check_constraint_in_db_is_covered(engine):
         "ck_tasks_status",
         "ck_quarantine_status",
         "ck_processed_messages_decision",
+        "ck_tasks_link_type",
     }

@@ -1,0 +1,44 @@
+{
+  "id": "task17",
+  "threadId": "thr-task17",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767286800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Assignment 3 deadline extended"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 356,
+          "data": "PHA-VGhlIGRlYWRsaW5lIGlzIGV4dGVuZGVkIHRpbGwgMjUgSmFuIDIwMjYuPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vb25saW5lY291cnNlcy5ucHRlbC5hYy5pbi9ub2MyNl9jczEwL3VuaXQ_dW5pdD01JmFzc2Vzc21lbnQ9MjAiPkdvIHRvIGFzc2lnbm1lbnQ8L2E-PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuYWMuaW4vdW5zdWJzY3JpYmU_dT0xIj5VbnN1YnNjcmliZTwvYT4gfCA8YSBocmVmPSJodHRwczovL25wdGVsLmFjLmluL3ByaXZhY3kiPlByaXZhY3kgcG9saWN5PC9hPiB8IDxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuYWMuaW4vdGVybXMiPlRlcm1zPC9hPjwvcD48cD4mY29weTsgMjAyNSBOUFRFTDwvcD4"
+        }
+      }
+    ]
+  }
+}

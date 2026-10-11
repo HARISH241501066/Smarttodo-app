@@ -1,0 +1,34 @@
+{
+  "id": "task04",
+  "threadId": "thr-task04",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767240000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Hackathon registration"
+      },
+      {
+        "name": "From",
+        "value": "Prof. Rao <rao@college.example.edu>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 73,
+      "data": "UGxlYXNlIGZpbGwgdGhlIGZvcm0gaHR0cHM6Ly9mb3Jtcy5nbGUvQWJDMTIzeHl6IGJlZm9yZSAxNSBKYW4gMjAyNiA1IFBNLg"
+    }
+  }
+}

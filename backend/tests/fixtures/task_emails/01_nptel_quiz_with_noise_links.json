@@ -1,0 +1,44 @@
+{
+  "id": "task01",
+  "threadId": "thr-task01",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767229200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "NPTEL: Week 5 quiz is live"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 533,
+          "data": "PGh0bWw-PGJvZHk-PHA-RGVhciBsZWFybmVyLCB0aGUgV2VlayA1IHF1aXogaXMgb3Blbi48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly90d2l0dGVyLmNvbS9ucHRlbGluZGlhIj5Gb2xsb3cgdXM8L2E-IDxhIGhyZWY9Imh0dHBzOi8vd3d3LmZhY2Vib29rLmNvbS9ucHRlbCI-RmFjZWJvb2s8L2E-PC9wPjxwPkxhc3QgZGF0ZSB0byBzdWJtaXQ6IDIyIEphbnVhcnkgMjAyNi48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly9vbmxpbmVjb3Vyc2VzLm5wdGVsLmFjLmluL25vYzI2X2NzMTAvdW5pdD91bml0PTUmYXNzZXNzbWVudD0yMCI-QXR0ZW1wdCBxdWl6PC9hPjwvcD48cD48YSBocmVmPSJodHRwczovL25wdGVsLmFjLmluL3Vuc3Vic2NyaWJlP3U9MSI-VW5zdWJzY3JpYmU8L2E-IHwgPGEgaHJlZj0iaHR0cHM6Ly9ucHRlbC5hYy5pbi9wcml2YWN5Ij5Qcml2YWN5IHBvbGljeTwvYT4gfCA8YSBocmVmPSJodHRwczovL25wdGVsLmFjLmluL3Rlcm1zIj5UZXJtczwvYT48L3A-PHA-JmNvcHk7IDIwMjUgTlBURUw8L3A-PC9ib2R5PjwvaHRtbD4"
+        }
+      }
+    ]
+  }
+}

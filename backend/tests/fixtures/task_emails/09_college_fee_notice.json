@@ -1,0 +1,44 @@
+{
+  "id": "task09",
+  "threadId": "thr-task09",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767258000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Exam fee notice"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 208,
+          "data": "PGh0bWw-PGJvZHk-PHA-TGFzdCBkYXRlIGZvciBmZWUgcGF5bWVudCBpcyAxNSBGZWIgMjAyNi48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly9lcnAuY29sbGVnZS5leGFtcGxlLmVkdS9mZWVzL3BheT9pZD0xIj5QYXkgbm93PC9hPjwvcD48cD48YSBocmVmPSJodHRwczovL2NvbGxlZ2UuZXhhbXBsZS5lZHUvdGVybXMiPlRlcm1zPC9hPjwvcD48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

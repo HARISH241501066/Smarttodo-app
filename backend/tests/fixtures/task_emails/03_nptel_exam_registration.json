@@ -1,0 +1,44 @@
+{
+  "id": "task03",
+  "threadId": "thr-task03",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767236400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "NPTEL exam registration open"
+      },
+      {
+        "name": "From",
+        "value": "NPTEL <noreply@nptel.ac.in>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 400,
+          "data": "PGh0bWw-PGJvZHk-PHA-UmVnaXN0cmF0aW9uIGVuZHMgb24gMjV0aCBGZWIgMjAyNi48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly9leGFtZm9ybS5ucHRlbC5hYy5pbi9yZWdpc3RyYXRpb24vYXBwbHkiPlJlZ2lzdGVyIG5vdzwvYT48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly9ucHRlbC5hYy5pbi8iPk5QVEVMIGhvbWU8L2E-PC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuYWMuaW4vdW5zdWJzY3JpYmU_dT0xIj5VbnN1YnNjcmliZTwvYT4gfCA8YSBocmVmPSJodHRwczovL25wdGVsLmFjLmluL3ByaXZhY3kiPlByaXZhY3kgcG9saWN5PC9hPiB8IDxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuYWMuaW4vdGVybXMiPlRlcm1zPC9hPjwvcD48cD4mY29weTsgMjAyNSBOUFRFTDwvcD48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

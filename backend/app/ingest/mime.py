@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 MAX_DEPTH = 20
 MAX_BODY_CHARS = 100_000
+MAX_LINKS = 300
+MAX_URL_CHARS = 2000
+_URL_RE = re.compile(r"https?://[^\s<>\"'\]\[]+", re.IGNORECASE)
 MAX_FETCHED_BYTES = 200 * 1024  # cap for text parts fetched via users.messages.attachments.get
 _BLOCK_TAGS = ("p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "table", "ul", "ol")
 _CHARSET_RE = re.compile(r"""charset\s*=\s*["']?([\w.:-]+)""", re.IGNORECASE)
@@ -30,6 +33,12 @@ _CHARSET_RE = re.compile(r"""charset\s*=\s*["']?([\w.:-]+)""", re.IGNORECASE)
 
 class MessageParseError(Exception):
     """The message structure is corrupt and cannot be parsed."""
+
+
+@dataclass(frozen=True)
+class Link:
+    url: str
+    text: str = ""  # anchor text; empty for URLs found in plain text
 
 
 @dataclass(frozen=True)
@@ -47,6 +56,8 @@ class ParsedMessage:
     # Topmost Authentication-Results header (the receiving server's own verdict); "" if absent.
     authentication_results: str = field(default="", repr=False)
     internal_date_ms: int | None = None
+    # Every http(s)/mailto link in the message (HTML anchors first, then bare URLs). In memory only.
+    links: tuple[Link, ...] = field(default=(), repr=False)
 
 
 # (message_id, attachment_id) -> base64url data, as returned by users.messages.attachments.get
@@ -88,8 +99,17 @@ def _decode_bytes(raw: bytes, content_type: str) -> str:
         return raw.decode("utf-8", errors="replace")
 
 
-def _html_to_text(html: str) -> str:
+def _plain_urls(text: str) -> list[str]:
+    return [m.group(0).rstrip(".,;:!?)>") for m in _URL_RE.finditer(text)]
+
+
+def _html_to_text(html: str, links: list[Link] | None = None) -> str:
     soup = BeautifulSoup(html, "html.parser")
+    if links is not None:  # collect anchors BEFORE anything is stripped or rewritten
+        for anchor in soup.find_all("a", href=True):
+            href = anchor["href"].strip()
+            if href.lower().startswith(("http://", "https://", "mailto:")):
+                links.append(Link(href[:MAX_URL_CHARS], " ".join(anchor.get_text().split())[:200]))
     for tag in soup(["script", "style", "head", "noscript", "template"]):
         tag.decompose()
     for br in soup.find_all("br"):
@@ -161,7 +181,7 @@ def _extract(part: dict[str, Any], depth: int, ctx: dict[str, Any]) -> str:
             return ""
         raw = _b64decode(fetched)[:MAX_FETCHED_BYTES]
     text = _decode_bytes(raw, _headers(part).get("content-type", ""))
-    return _html_to_text(text) if mime == "text/html" else text.strip()
+    return _html_to_text(text, ctx["links"]) if mime == "text/html" else text.strip()
 
 
 def _first_header(part: dict[str, Any], name: str) -> str:
@@ -184,8 +204,16 @@ def parse_message(
         if str(internal or "").isdigit()
         else None
     )
-    ctx: dict[str, Any] = {"attachments": False, "fetch": fetch_attachment, "message_id": raw["id"]}
+    ctx: dict[str, Any] = {
+        "attachments": False,
+        "fetch": fetch_attachment,
+        "message_id": raw["id"],
+        "links": [],
+    }
     body = _extract(payload, 0, ctx)
+    links: dict[str, Link] = {}
+    for link in [*ctx["links"], *(Link(u[:MAX_URL_CHARS]) for u in _plain_urls(body))]:
+        links.setdefault(link.url, link)
     return ParsedMessage(
         message_id=raw["id"],
         thread_id=raw.get("threadId", ""),
@@ -198,4 +226,5 @@ def parse_message(
         has_attachments=ctx["attachments"],
         authentication_results=" ".join(_first_header(payload, "authentication-results").split()),
         internal_date_ms=int(internal) if str(internal or "").isdigit() else None,
+        links=tuple(links.values())[:MAX_LINKS],
     )

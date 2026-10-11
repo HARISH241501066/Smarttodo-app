@@ -1,0 +1,44 @@
+{
+  "id": "task24",
+  "threadId": "thr-task24",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767312000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Hostel notice"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 199,
+          "data": "PGh0bWw-PGJvZHk-PHA-SG9zdGVsIGFsbG90bWVudCBjbG9zZXMgb24gMTQgSmFuIDIwMjYuPC9wPjxhIGhyZWY9Imh0dHBzOi8vdHJhY2suY29sbGVnZS5leGFtcGxlLmVkdS9waXhlbC9vcGVuLmdpZiI-eDwvYT48YSBocmVmPSJodHRwczovL2NvbGxlZ2UuZXhhbXBsZS5lZHUvaW1nL2Jhbm5lci5wbmciPmJhbm5lcjwvYT48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

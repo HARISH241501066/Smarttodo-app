@@ -1,0 +1,44 @@
+{
+  "id": "task05",
+  "threadId": "thr-task05",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767243600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Feedback form for the workshop"
+      },
+      {
+        "name": "From",
+        "value": "Dr. Iyer <iyer@college.example.edu>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 215,
+          "data": "PGh0bWw-PGJvZHk-PHA-UGxlYXNlIDxhIGhyZWY9Imh0dHBzOi8vZG9jcy5nb29nbGUuY29tL2Zvcm1zL2QvZS8xRkFJcFFMU2RTeW50aGV0aWMvdmlld2Zvcm0iPm9wZW4gdGhlIGZvcm08L2E-IGFuZCBzdWJtaXQgYnkgRnJpZGF5LjwvcD48cD48YSBocmVmPSJodHRwczovL2NvbGxlZ2UuZXhhbXBsZS5lZHUvcHJpdmFjeSI-UHJpdmFjeTwvYT48L3A-PC9ib2R5PjwvaHRtbD4"
+        }
+      }
+    ]
+  }
+}

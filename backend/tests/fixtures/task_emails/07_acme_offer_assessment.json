@@ -1,0 +1,44 @@
+{
+  "id": "task07",
+  "threadId": "thr-task07",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767250800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Offer letter and assessment: Software Intern"
+      },
+      {
+        "name": "From",
+        "value": "Acme Labs Recruiting <recruiting@acme-labs.example>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 243,
+          "data": "PGh0bWw-PGJvZHk-PHA-Q29uZ3JhdHVsYXRpb25zISBBc3Nlc3NtZW50IGRlYWRsaW5lOiAzIEZlYiAyMDI2IDE4OjMwIElTVC48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly9hc3Nlc3MuYWNtZS1sYWJzLmV4YW1wbGUvc3RhcnQ_dG9rZW49YWJjIj5TdGFydCBhc3Nlc3NtZW50PC9hPjwvcD48cD48YSBocmVmPSJtYWlsdG86cmVjcnVpdGluZ0BhY21lLWxhYnMuZXhhbXBsZSI-RW1haWwgdXM8L2E-PC9wPjwvYm9keT48L2h0bWw-"
+        }
+      }
+    ]
+  }
+}

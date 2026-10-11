@@ -1,0 +1,44 @@
+{
+  "id": "task06",
+  "threadId": "thr-task06",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767247200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Interview invitation: Data Analytics internship"
+      },
+      {
+        "name": "From",
+        "value": "Internshala <no-reply@internshala.com>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 262,
+          "data": "PGh0bWw-PGJvZHk-PHA-WW91IGFyZSBpbnZpdGVkIHRvIGFuIGludGVydmlldy4gTGFzdCBkYXRlIHRvIGNvbmZpcm06IDI4IEphbiAyMDI2IDQgUE0uPC9wPjxwPjxhIGhyZWY9Imh0dHBzOi8vaW50ZXJuc2hhbGEuY29tL3N0dWRlbnQvYXBwbGljYXRpb24vMTIzL2NvbmZpcm0iPkNvbmZpcm0gc2xvdDwvYT48L3A-PHA-PGEgaHJlZj0iaHR0cHM6Ly93d3cuaW5zdGFncmFtLmNvbS9pbnRlcm5zaGFsYSI-SW5zdGFncmFtPC9hPjwvcD48L2JvZHk-PC9odG1sPg"
+        }
+      }
+    ]
+  }
+}

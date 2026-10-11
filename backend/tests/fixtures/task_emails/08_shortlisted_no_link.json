@@ -1,0 +1,34 @@
+{
+  "id": "task08",
+  "threadId": "thr-task08",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767254400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "You are shortlisted"
+      },
+      {
+        "name": "From",
+        "value": "Acme Labs Recruiting <recruiting@acme-labs.example>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 77,
+      "data": "WW91IGhhdmUgYmVlbiBzaG9ydGxpc3RlZCBmb3IgdGhlIG5leHQgcm91bmQuIExhc3QgZGF0ZSB0byByZXBseSAxMCBGZWIgMjAyNi4"
+    }
+  }
+}

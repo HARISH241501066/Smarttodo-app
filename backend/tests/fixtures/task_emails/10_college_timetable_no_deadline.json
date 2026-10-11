@@ -1,0 +1,34 @@
+{
+  "id": "task10",
+  "threadId": "thr-task10",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767261600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Semester 5 timetable"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 68,
+      "data": "VGhlIHRpbWV0YWJsZSBpcyBvbiB0aGUgbm90aWNlIGJvYXJkLiBDbGFzc2VzIGJlZ2luIG9uIDIgTWFyY2ggMjAyNi4"
+    }
+  }
+}

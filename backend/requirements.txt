@@ -16,3 +16,5 @@ beautifulsoup4==4.15.0
 soupsieve==2.10
 tenacity==9.1.4
 httplib2==0.32.0
+dateparser==1.4.3
+rapidfuzz==3.14.6

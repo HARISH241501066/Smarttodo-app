@@ -1,0 +1,34 @@
+{
+  "id": "task14",
+  "threadId": "thr-task14",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767276000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Notice"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 83,
+      "data": "U2VudCBvbiAwMS8wMS8yMDI2LiBQb3N0ZWQ6IDMxIERlYyAyMDI1LgpEZWFkbGluZTogMTggSmFudWFyeSAyMDI2CihjKSAyMDI2IENvbGxlZ2U"
+    }
+  }
+}

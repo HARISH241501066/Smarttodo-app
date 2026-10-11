@@ -1,0 +1,44 @@
+{
+  "id": "task25",
+  "threadId": "thr-task25",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767315600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Volunteer sign-up"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.edu>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 176,
+          "data": "PGh0bWw-PGJvZHk-PHA-U2lnbiB1cCB2aWEgdGhlIGZvcm0sIGZpbGwgYmVmb3JlIDkgSmFuIDIwMjYuPC9wPjxhIGhyZWY9Imh0dHBzOi8vY29sbGVnZS5leGFtcGxlLmVkdS8iPkhvbWU8L2E-IDxhIGhyZWY9Imh0dHBzOi8vZm9ybXMuZ2xlL1ZvbFNpZ25VcDEiPlNpZ24gdXA8L2E-PC9ib2R5PjwvaHRtbD4"
+        }
+      }
+    ]
+  }
+}
