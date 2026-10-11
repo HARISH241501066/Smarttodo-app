@@ -1,0 +1,34 @@
+{
+  "id": "msg015",
+  "threadId": "thr015",
+  "labelIds": [
+    "INBOX",
+    "CATEGORY_PROMOTIONS"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767279600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Big sale"
+      },
+      {
+        "name": "From",
+        "value": "Shop <deals@shop.example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 19,
+      "data": "NTAlIG9mZiBldmVyeXRoaW5nIQ"
+    }
+  }
+}

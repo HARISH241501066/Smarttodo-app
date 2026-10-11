@@ -1,0 +1,34 @@
+{
+  "id": "msg003",
+  "threadId": "thr003",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767236400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Registration form"
+      },
+      {
+        "name": "From",
+        "value": "Dept Office <office@college.example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 151,
+      "data": "PGRpdj5QbGVhc2UgZmlsbCB0aGUgPGEgaHJlZj0iaHR0cHM6Ly9kb2NzLmdvb2dsZS5jb20vZm9ybXMvZC9lL1NZTlRIMTIzL3ZpZXdmb3JtIj5yZWdpc3RyYXRpb24gZm9ybTwvYT4gYmVmb3JlIE1vbmRheS48L2Rpdj48YnI-VGhhbmtzLDxicj5EZXB0IE9mZmljZQ"
+    }
+  }
+}

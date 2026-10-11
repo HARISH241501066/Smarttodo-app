@@ -1,0 +1,27 @@
+{
+  "id": "msg018",
+  "threadId": "thr018",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767290400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Empty body"
+      },
+      {
+        "name": "From",
+        "value": "Pat <pat@example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    }
+  }
+}

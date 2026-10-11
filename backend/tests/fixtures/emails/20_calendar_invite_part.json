@@ -1,0 +1,74 @@
+{
+  "id": "msg020",
+  "threadId": "thr020",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767297600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Invitation: project review"
+      },
+      {
+        "name": "From",
+        "value": "Guide <guide@college.example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 41,
+          "data": "TWVldGluZyBpbnZpdGU6IHByb2plY3QgcmV2aWV3IG9uIDE1IEphbi4"
+        }
+      },
+      {
+        "partId": "0.1",
+        "mimeType": "text/calendar",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/calendar; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 50,
+          "data": "QkVHSU46VkNBTEVOREFSDQpTVU1NQVJZOlNFQ1JFVC1JQ1MNCkVORDpWQ0FMRU5EQVI"
+        }
+      },
+      {
+        "partId": "0.2",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 26,
+          "data": "PHA-TWVldGluZyBpbnZpdGUgaHRtbDwvcD4"
+        }
+      }
+    ]
+  }
+}

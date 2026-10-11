@@ -1,0 +1,44 @@
+{
+  "id": "msg006",
+  "threadId": "thr006",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767247200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Syllabus"
+      },
+      {
+        "name": "From",
+        "value": "Dept <dept@college.example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0",
+        "mimeType": "application/pdf",
+        "filename": "syllabus.pdf",
+        "headers": [
+          {
+            "name": "Content-Disposition",
+            "value": "attachment; filename=\"syllabus.pdf\""
+          }
+        ],
+        "body": {
+          "size": 48213,
+          "attachmentId": "ANGjdJ_synthetic_0"
+        }
+      }
+    ]
+  }
+}

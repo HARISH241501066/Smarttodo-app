@@ -1,0 +1,26 @@
+{
+  "id": "msg012",
+  "threadId": "thr012",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767268800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 22,
+      "data": "Tm8gc3ViamVjdCwgbm8gc2VuZGVyLg"
+    }
+  }
+}

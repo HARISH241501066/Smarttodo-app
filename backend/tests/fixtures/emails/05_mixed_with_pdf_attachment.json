@@ -1,0 +1,59 @@
+{
+  "id": "msg005",
+  "threadId": "thr005",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767243600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Hall ticket"
+      },
+      {
+        "name": "From",
+        "value": "Exams <exams@college.example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 40,
+          "data": "SGFsbCB0aWNrZXQgYXR0YWNoZWQuIEV4YW0gYmVnaW5zIDMgRmViLg"
+        }
+      },
+      {
+        "partId": "1",
+        "mimeType": "application/pdf",
+        "filename": "hall_ticket.pdf",
+        "headers": [
+          {
+            "name": "Content-Disposition",
+            "value": "attachment; filename=\"hall_ticket.pdf\""
+          }
+        ],
+        "body": {
+          "size": 48213,
+          "attachmentId": "ANGjdJ_synthetic_1"
+        }
+      }
+    ]
+  }
+}

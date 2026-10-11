@@ -1,0 +1,101 @@
+{
+  "id": "msg007",
+  "threadId": "thr007",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767250800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Workshop invite"
+      },
+      {
+        "name": "From",
+        "value": "Club <club@college.example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "mimeType": "multipart/related",
+        "headers": [],
+        "body": {
+          "size": 0
+        },
+        "parts": [
+          {
+            "mimeType": "multipart/alternative",
+            "headers": [],
+            "body": {
+              "size": 0
+            },
+            "parts": [
+              {
+                "partId": "0.0.0.0",
+                "mimeType": "text/plain",
+                "filename": "",
+                "headers": [
+                  {
+                    "name": "Content-Type",
+                    "value": "text/plain; charset=\"utf-8\""
+                  }
+                ],
+                "body": {
+                  "size": 37,
+                  "data": "TmVzdGVkIHBsYWluIGJvZHk6IHdvcmtzaG9wIG9uIDggRmViLg"
+                }
+              },
+              {
+                "partId": "0.0.0.1",
+                "mimeType": "text/html",
+                "filename": "",
+                "headers": [
+                  {
+                    "name": "Content-Type",
+                    "value": "text/html; charset=\"utf-8\""
+                  }
+                ],
+                "body": {
+                  "size": 23,
+                  "data": "PHA-TmVzdGVkIGh0bWwgYm9keTwvcD4"
+                }
+              }
+            ]
+          },
+          {
+            "mimeType": "image/png",
+            "filename": "logo.png",
+            "headers": [],
+            "body": {
+              "size": 900,
+              "attachmentId": "ANGjdJ_logo"
+            }
+          }
+        ]
+      },
+      {
+        "partId": "0.1",
+        "mimeType": "application/pdf",
+        "filename": "agenda.pdf",
+        "headers": [
+          {
+            "name": "Content-Disposition",
+            "value": "attachment; filename=\"agenda.pdf\""
+          }
+        ],
+        "body": {
+          "size": 48213,
+          "attachmentId": "ANGjdJ_synthetic_0.1"
+        }
+      }
+    ]
+  }
+}

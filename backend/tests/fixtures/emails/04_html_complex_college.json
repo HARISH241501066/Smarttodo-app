@@ -1,0 +1,34 @@
+{
+  "id": "msg004",
+  "threadId": "thr004",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767240000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Circular: lab record submission"
+      },
+      {
+        "name": "From",
+        "value": "Registrar <registrar@college.example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 369,
+      "data": "PGh0bWw-PGhlYWQ-PHRpdGxlPmlnbm9yZWQgdGl0bGU8L3RpdGxlPgo8c3R5bGU-Lnh7Y29sb3I6cmVkfTwvc3R5bGU-PHNjcmlwdD5hbGVydCgndHJhY2tpbmcnKTwvc2NyaXB0PjwvaGVhZD4KPGJvZHk-PGRpdj5EZWFyIGxlYXJuZXIsPC9kaXY-PHA-QXNzaWdubWVudCA0IGNsb3NlcyBvbiA8Yj5GcmlkYXk8L2I-LjwvcD4KPHRhYmxlPjx0cj48dGQ-Q291cnNlPC90ZD48dGQ-RGF0YSBTdHJ1Y3R1cmVzPC90ZD48L3RyPjwvdGFibGU-CjxwPk9wZW4gdGhlIDxhIGhyZWY9Imh0dHBzOi8vbnB0ZWwuZXhhbXBsZS50ZXN0L2Fzc2lnbm1lbnQvNCI-cG9ydGFsPC9hPiBub3cuPC9wPgo8IS0tIGhpZGRlbiBjb21tZW50IC0tPjwvYm9keT48L2h0bWw-"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "msg016",
+  "threadId": "thr016",
+  "labelIds": [
+    "SPAM"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767283200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Winner!!!"
+      },
+      {
+        "name": "From",
+        "value": "Prize <win@lottery.example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 40,
+      "data": "WW91IHdvbiBhIHByaXplLCBzZW5kIHlvdXIgYmFuayBkZXRhaWxzLg"
+    }
+  }
+}

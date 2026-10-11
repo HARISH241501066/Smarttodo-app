@@ -1,0 +1,34 @@
+{
+  "id": "msg017",
+  "threadId": "thr017",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767286800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Your weekly stats"
+      },
+      {
+        "name": "From",
+        "value": "LinkedIn <notifications@linkedin.com>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 37,
+      "data": "WW91IGFwcGVhcmVkIGluIDQgc2VhcmNoZXMgdGhpcyB3ZWVrLg"
+    }
+  }
+}

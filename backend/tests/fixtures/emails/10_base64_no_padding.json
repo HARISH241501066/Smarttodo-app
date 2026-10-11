@@ -1,0 +1,28 @@
+{
+  "id": "msg010",
+  "threadId": "thr010",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767261600000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "No padding"
+      },
+      {
+        "name": "From",
+        "value": "Pat <pat@example.test>"
+      }
+    ],
+    "body": {
+      "size": 5,
+      "data": "YWJjZGU"
+    }
+  }
+}

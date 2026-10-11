@@ -1,0 +1,34 @@
+{
+  "id": "msg011",
+  "threadId": "thr011",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767265200000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/plain",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Corrupt body"
+      },
+      {
+        "name": "From",
+        "value": "Pat <pat@example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 1,
+      "data": "QUJDR"
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "id": "msg019",
+  "threadId": "thr019",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767294000000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "partId": "0",
+    "mimeType": "text/html",
+    "filename": "",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Results \ud83c\udf93"
+      },
+      {
+        "name": "From",
+        "value": "Office <office@college.example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/html; charset=\"utf-8\""
+      }
+    ],
+    "body": {
+      "size": 65,
+      "data": "PHA-4K614K6j4K6V4K-N4K6V4K6u4K-NIOCkqOCkruCkuOCljeCkpOClhyDwn46TIFJlc3VsdHMgb3V0ITwvcD4"
+    }
+  }
+}

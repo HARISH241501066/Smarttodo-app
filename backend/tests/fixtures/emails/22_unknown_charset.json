@@ -1,0 +1,32 @@
+{
+  "id": "msg022",
+  "threadId": "thr022",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767304800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "text/plain",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Odd charset"
+      },
+      {
+        "name": "From",
+        "value": "Pat <pat@example.test>"
+      },
+      {
+        "name": "Content-Type",
+        "value": "text/plain; charset=\"x-bogus-charset\""
+      }
+    ],
+    "body": {
+      "size": 21,
+      "data": "VW5rbm93biBjaGFyc2V0IGJvZHk"
+    }
+  }
+}

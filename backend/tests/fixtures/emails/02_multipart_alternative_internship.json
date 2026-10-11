@@ -1,0 +1,59 @@
+{
+  "id": "msg002",
+  "threadId": "thr002",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767232800000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Summer internship applications open"
+      },
+      {
+        "name": "From",
+        "value": "Careers <careers@acme.example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 57,
+          "data": "UExBSU4gVkVSU0lPTjogQXBwbHkgZm9yIHRoZSBzdW1tZXIgaW50ZXJuc2hpcCBieSAyMCBKYW4u"
+        }
+      },
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 52,
+          "data": "PHA-SFRNTCBWRVJTSU9OOiBhcHBseSBmb3IgdGhlIHN1bW1lciBpbnRlcm5zaGlwPC9wPg"
+        }
+      }
+    ]
+  }
+}

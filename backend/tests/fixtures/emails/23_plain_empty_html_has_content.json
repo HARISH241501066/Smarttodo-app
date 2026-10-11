@@ -1,0 +1,59 @@
+{
+  "id": "msg023",
+  "threadId": "thr023",
+  "labelIds": [
+    "INBOX",
+    "UNREAD"
+  ],
+  "snippet": "synthetic",
+  "internalDate": "1767308400000",
+  "sizeEstimate": 2048,
+  "payload": {
+    "mimeType": "multipart/alternative",
+    "headers": [
+      {
+        "name": "Subject",
+        "value": "Deadline notice"
+      },
+      {
+        "name": "From",
+        "value": "Dept <dept@college.example.test>"
+      }
+    ],
+    "body": {
+      "size": 0
+    },
+    "parts": [
+      {
+        "partId": "0.0",
+        "mimeType": "text/plain",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/plain; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 3,
+          "data": "ICAg"
+        }
+      },
+      {
+        "partId": "0.1",
+        "mimeType": "text/html",
+        "filename": "",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "text/html; charset=\"utf-8\""
+          }
+        ],
+        "body": {
+          "size": 46,
+          "data": "PHA-T25seSB0aGUgSFRNTCBoYXMgdGhlIGRlYWRsaW5lOiAzMCBKYW4uPC9wPg"
+        }
+      }
+    ]
+  }
+}
