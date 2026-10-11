@@ -62,6 +62,10 @@ def _test_env(monkeypatch):
     monkeypatch.setenv("COOKIE_SECURE", "false")
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
     monkeypatch.setenv("SMS_ENABLED", "false")
+    monkeypatch.setenv("CALENDAR_ENABLED", "false")
+    monkeypatch.setenv("DEV_PUSH_TEST_PAGE", "false")
+    for name in ("SMTP_HOST", "VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY"):
+        monkeypatch.setenv(name, "")  # tests never send real email or push
     get_settings.cache_clear()
     credentials._access_cache.clear()
     yield

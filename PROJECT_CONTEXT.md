@@ -40,6 +40,14 @@ Every task has an action link: the direct URL to complete the task (NPTEL quiz p
 - Module 11 (dashboard): notification bell; an "Open & Complete" button on each task card showing the link's domain; push opt-in; PWA manifest + service worker.
 - Module 12 (monitoring): health alerts go by email.
 
+## Deployment notes
+- `PUBLIC_BASE_URL` (.env) is used for the "Mark as done" link in reminder emails. It is
+  `http://localhost:8000` in development and **must be changed to the production HTTPS URL in
+  Module 14**. Email links, Web Push (service workers need HTTPS outside localhost) and the OAuth
+  redirect URI all depend on it.
+- `SCHEDULER_ENABLED=true` runs the background jobs inside the API process; `DEV_PUSH_TEST_PAGE`
+  must stay `false` outside development.
+
 ## Repo structure
 /backend/app: main.py, config.py, db.py, security.py, /models, /schemas, /api, /auth, /ingest, /filters, /scheduler, /notify, /monitoring
 /backend/alembic, /backend/tests (/fixtures/emails — synthetic only)
@@ -64,3 +72,4 @@ Every task has an action link: the direct URL to complete the task (NPTEL quiz p
 
 ## Change log
 - 2026-10-11: Telegram removed. Added in-app, Web Push (PWA), email and optional SMS channels plus Google Calendar; added the per-task action link; replaced the reminder ladder; updated Module 11 (dashboard) and Module 12 (monitoring) notes. Follow-up for a later module: `users.telegram_chat_id` (Module 1 schema) is now obsolete and should be dropped by a migration.
+- 2026-10-11: Module 9 decisions. The email "Mark as done" link opens a confirmation page and only its POST button changes data (a GET never does); tokens are signed, single-use and expire at the task's deadline. The Web Push test page is served only when DEV_PUSH_TEST_PAGE=true. PUBLIC_BASE_URL must become the production HTTPS URL in Module 14.

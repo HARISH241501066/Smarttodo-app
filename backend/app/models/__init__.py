@@ -1,25 +1,31 @@
 from app.models.base import (
     Base,
+    CalendarOrphan,
     IngestFailure,
     Notification,
     ProcessedMessage,
+    PushSubscription,
     Quarantine,
     Reminder,
     SyncState,
     Task,
+    UsedActionToken,
     User,
     UserSettings,
 )
 
 __all__ = [
     "Base",
+    "CalendarOrphan",
     "IngestFailure",
     "Notification",
     "ProcessedMessage",
+    "PushSubscription",
     "Quarantine",
     "Reminder",
     "SyncState",
     "Task",
+    "UsedActionToken",
     "User",
     "UserSettings",
 ]

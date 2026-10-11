@@ -14,8 +14,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Notification, Reminder, Task
-from app.notify.channels import Outgoing, Sender, default_senders
+from app.models import Notification, Reminder, Task, User
+from app.notify.channels import ChannelDisabled, Outgoing, Sender, default_senders
 from app.notify.render import render_reminder
 
 logger = logging.getLogger(__name__)
@@ -70,18 +70,26 @@ def dispatch_due(
             continue
 
         title, body = render_reminder(reminder.kind, task.title, task.deadline)
+        user = session.get(User, task.user_id)
         message = Outgoing(
-            task.user_id,
-            task.id,
-            reminder.id,
-            reminder.channel,
-            reminder.kind or "",
-            title,
-            body,
-            task.link,
+            user_id=task.user_id,
+            task_id=task.id,
+            reminder_id=reminder.id,
+            channel=reminder.channel,
+            kind=reminder.kind or "",
+            title=title,
+            body=body,
+            link=task.link,
+            user_email=user.email if user else None,
+            deadline=task.deadline,
         )
         try:
             senders[reminder.channel].send(message)
+        except ChannelDisabled:  # switched off (e.g. SMS_ENABLED=false): drop, do not retry
+            session.delete(reminder)
+            session.commit()
+            result.skipped += 1
+            continue
         except Exception as exc:
             reminder.attempts += 1
             session.commit()

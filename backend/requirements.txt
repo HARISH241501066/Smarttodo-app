@@ -19,3 +19,4 @@ httplib2==0.32.0
 dateparser==1.4.3
 rapidfuzz==3.14.6
 apscheduler==3.11.0
+pywebpush==2.5.0

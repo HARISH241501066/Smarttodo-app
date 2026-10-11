@@ -90,6 +90,7 @@ class Task(Base):
     status: Mapped[str] = mapped_column(String(16), server_default="open", nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float)
     gcal_event_id: Mapped[str | None] = mapped_column(String(255))
+    gcal_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _ts()
     updated_at: Mapped[datetime] = _ts()
 
@@ -171,6 +172,46 @@ class ProcessedMessage(Base):
     decision: Mapped[str] = mapped_column(String(16), nullable=False)
     reason: Mapped[str | None] = mapped_column(String(255))
     processed_at: Mapped[datetime] = _ts()
+
+
+class PushSubscription(Base):
+    """A browser's Web Push subscription. The endpoint is the identity of one browser profile."""
+
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("endpoint", name="uq_push_subscriptions_endpoint"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False)
+    p256dh: Mapped[str] = mapped_column(Text, nullable=False)
+    auth: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = _ts()
+
+
+class UsedActionToken(Base):
+    """Nonces of "Mark as done" email links that have been used (each link works once)."""
+
+    __tablename__ = "used_action_tokens"
+
+    nonce: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"))
+    used_at: Mapped[datetime] = _ts()
+
+
+class CalendarOrphan(Base):
+    """A Google Calendar event whose task is gone but whose deletion failed; retried by a job."""
+
+    __tablename__ = "calendar_orphans"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, server_default=text("0"), nullable=False)
+    created_at: Mapped[datetime] = _ts()
 
 
 class SyncState(Base):

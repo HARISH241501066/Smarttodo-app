@@ -3,14 +3,20 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.deps import get_current_user
 from app.db import get_session
 from app.filters.deadline import priority_for
 from app.filters.links import gmail_fallback
-from app.models import Reminder, Task, User
+from app.models import Task, User
+from app.notify.calendar import (
+    CalendarApi,
+    delete_event_for_removed_task,
+    get_calendar_api,
+    try_sync_task_event,
+)
 from app.priority import recompute_priorities
 from app.scheduler.reminders import sync_reminders
 from app.schemas.tasks import (
@@ -23,6 +29,7 @@ from app.schemas.tasks import (
     TaskUpdate,
     to_utc,
 )
+from app.task_ops import cancel_pending_reminders, close_task
 
 router = APIRouter(tags=["tasks"])
 
@@ -53,8 +60,10 @@ def _set_link(task: Task, link: str | None) -> None:
         task.link, task.link_type, task.link_confidence = None, None, None
 
 
-def _cancel_pending_reminders(session: Session, task_id: int) -> None:
-    session.execute(delete(Reminder).where(Reminder.task_id == task_id, Reminder.sent_at.is_(None)))
+def _sync_calendar(session: Session, calendar: CalendarApi | None, task: Task) -> None:
+    """Write the task's Calendar event after the database change is saved. Best effort."""
+    if try_sync_task_event(session, calendar, task):
+        session.commit()
 
 
 @router.get("/tasks", response_model=list[TaskOut])
@@ -86,6 +95,7 @@ def create_task(
     body: TaskCreate,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> TaskOut:
     now = datetime.now(UTC)
     deadline = to_utc(body.deadline)
@@ -104,6 +114,7 @@ def create_task(
     session.flush()
     sync_reminders(session, task, now=now, created=True)
     session.commit()
+    _sync_calendar(session, calendar, task)
     return TaskOut.from_task(task)
 
 
@@ -120,6 +131,7 @@ def update_task(
     body: TaskUpdate,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> TaskOut:
     task = owned_task(session, user, task_id)
     sent = body.model_fields_set
@@ -146,45 +158,57 @@ def update_task(
     if "status" in sent:
         task.status = body.status
         if body.status in ("done", "dismissed"):
-            _cancel_pending_reminders(session, task.id)
+            cancel_pending_reminders(session, task.id)
     task.updated_at = now
     if "deadline" in sent or "status" in sent:  # regenerate the unsent reminders
         sync_reminders(session, task, now=now)
     session.commit()
+    _sync_calendar(session, calendar, task)
     return TaskOut.from_task(task)
 
 
 @router.delete("/tasks/{task_id}", status_code=204)
 def delete_task(
-    task_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
+    task_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> Response:
     task = owned_task(session, user, task_id)
+    delete_event_for_removed_task(session, calendar, user.id, task.gcal_event_id)
     session.delete(task)  # reminders cascade
     session.commit()
     return Response(status_code=204)
 
 
-def _close(task_id: int, status: str, user: User, session: Session) -> TaskOut:
+def _close(
+    task_id: int, status: str, user: User, session: Session, calendar: CalendarApi | None
+) -> TaskOut:
     task = owned_task(session, user, task_id)
-    task.status = status
-    task.updated_at = datetime.now(UTC)
-    _cancel_pending_reminders(session, task.id)
+    close_task(session, task, status)
     session.commit()
+    _sync_calendar(session, calendar, task)  # removes the event
     return TaskOut.from_task(task)
 
 
 @router.post("/tasks/{task_id}/done", response_model=TaskOut)
 def mark_done(
-    task_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
+    task_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> TaskOut:
-    return _close(task_id, "done", user, session)
+    return _close(task_id, "done", user, session, calendar)
 
 
 @router.post("/tasks/{task_id}/dismiss", response_model=TaskOut)
 def dismiss(
-    task_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)
+    task_id: int,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> TaskOut:
-    return _close(task_id, "dismissed", user, session)
+    return _close(task_id, "dismissed", user, session, calendar)
 
 
 @router.get("/review", response_model=list[TaskOut])
@@ -205,6 +229,7 @@ def review_confirm(
     body: ReviewConfirm | None = None,
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> TaskOut:
     """Accept a needs-review task as it is, or with edits to title, deadline and link."""
     task = owned_task(session, user, task_id)
@@ -225,4 +250,5 @@ def review_confirm(
     session.flush()
     sync_reminders(session, task, now=now, created=True)
     session.commit()
+    _sync_calendar(session, calendar, task)
     return TaskOut.from_task(task)

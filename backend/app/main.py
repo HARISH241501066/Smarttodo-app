@@ -5,7 +5,18 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from google.auth.exceptions import GoogleAuthError
 
-from app.api import auth, me, quarantine, settings, sync, tasks
+from app.api import (
+    actions,
+    auth,
+    dev,
+    me,
+    notifications,
+    push,
+    quarantine,
+    settings,
+    sync,
+    tasks,
+)
 from app.auth.credentials import ReauthRequired
 from app.config import get_settings
 from app.db import check_db
@@ -42,6 +53,10 @@ app.include_router(sync.router)
 app.include_router(tasks.router)
 app.include_router(quarantine.router)
 app.include_router(settings.router)
+app.include_router(notifications.router)
+app.include_router(push.router)
+app.include_router(actions.router)
+app.include_router(dev.router)
 
 
 @app.exception_handler(ReauthRequired)

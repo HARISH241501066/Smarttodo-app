@@ -1,15 +1,22 @@
-"""Channel interface and the stub senders. Real senders arrive in Module 9.
+"""Channel interface and the factory that picks real senders (or logging stubs when a channel
+is not configured). A sender raises on failure and the dispatcher retries; it raises
+ChannelDisabled when the channel is switched off, and the reminder is dropped instead.
 
-A sender raises on failure; the dispatcher retries. Stubs log ids only, never titles or links.
+Stubs and real senders log ids only, never titles, links or addresses.
 """
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
 CHANNELS = ("inapp", "push", "email", "sms", "calendar")
+
+
+class ChannelDisabled(Exception):
+    """The channel is turned off (e.g. SMS_ENABLED=false); the reminder is dropped, not retried."""
 
 
 @dataclass(frozen=True)
@@ -22,6 +29,8 @@ class Outgoing:
     title: str
     body: str
     link: str | None
+    user_email: str | None = None
+    deadline: datetime | None = None
 
 
 class Sender(Protocol):
@@ -29,6 +38,8 @@ class Sender(Protocol):
 
 
 class StubSender:
+    """Used for a channel that is not configured: logs the attempt and succeeds."""
+
     def __init__(self, channel: str):
         self.channel = channel
 
@@ -46,7 +57,28 @@ class InAppSender:
         return None
 
 
-def default_senders() -> dict[str, Sender]:
-    senders: dict[str, Sender] = {c: StubSender(c) for c in CHANNELS}
-    senders["inapp"] = InAppSender()
+class CalendarSender:
+    """Calendar events are synced when a task changes (and by a reconcile job), not by the
+    reminder outbox, so a stray 'calendar' reminder is simply dropped."""
+
+    def send(self, message: Outgoing) -> None:
+        raise ChannelDisabled("calendar events are not sent through the outbox")
+
+
+def default_senders(settings=None, session_factory=None) -> dict[str, Sender]:
+    """Real senders where configured, logging stubs otherwise."""
+    from app.config import get_settings
+    from app.notify.email import EmailSender
+    from app.notify.push import PushSender
+    from app.notify.sms import SmsSender, StubSmsProvider
+
+    settings = settings or get_settings()
+    senders: dict[str, Sender] = {
+        "inapp": InAppSender(),
+        "calendar": CalendarSender(),
+        "sms": SmsSender(StubSmsProvider(), enabled=settings.sms_enabled),
+    }
+    senders["email"] = EmailSender(settings) if settings.smtp_host else StubSender("email")
+    vapid_ready = settings.vapid_public_key and settings.vapid_private_key.get_secret_value()
+    senders["push"] = PushSender(settings, session_factory) if vapid_ready else StubSender("push")
     return senders

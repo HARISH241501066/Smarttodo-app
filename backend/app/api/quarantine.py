@@ -16,6 +16,7 @@ from app.filters.task_stage import ingest_message
 from app.ingest.gmail import GmailApi, MessageGone, RateLimited
 from app.ingest.mime import parse_message
 from app.models import ProcessedMessage, Quarantine, User
+from app.notify.calendar import CalendarApi, get_calendar_api, try_sync_task_event
 from app.scheduler.reminders import sync_reminders
 from app.schemas.tasks import QuarantineOut, RescueOut, TaskOut
 
@@ -52,6 +53,7 @@ def rescue(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
     gmail: GmailApi = Depends(get_gmail_api),
+    calendar: CalendarApi | None = Depends(get_calendar_api),
 ) -> RescueOut:
     """Re-fetch the message and run it through the task pipeline, skipping the scam filter."""
     row = _owned(session, user, quarantine_id)
@@ -82,6 +84,8 @@ def rescue(
         )
     )
     session.commit()
+    if task is not None and try_sync_task_event(session, calendar, task):
+        session.commit()
     logger.info("quarantine %s rescued (message %s)", row.id, row.message_id)
     return RescueOut(
         quarantine=QuarantineOut.model_validate(row),

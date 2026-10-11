@@ -17,6 +17,7 @@ from app.filters.task_stage import make_task_stage
 from app.ingest.gmail import GmailApi, GoogleGmailApi, RateLimited
 from app.ingest.sync import SyncInProgress, run_sync
 from app.models import User
+from app.notify.calendar import reconcile_calendar
 from app.priority import recompute_priorities
 from app.scheduler.digest import run_digest
 from app.scheduler.dispatcher import dispatch_due
@@ -91,6 +92,10 @@ def poll_sync_job() -> None:
         poll_sync()
     except Exception as exc:
         logger.error("job poll_sync failed: %s", type(exc).__name__)
+    try:  # tasks the sync created (or that Google missed earlier) get their Calendar event
+        reconcile_calendar(_session)
+    except Exception as exc:
+        logger.error("calendar reconcile failed: %s", type(exc).__name__)
 
 
 def priority_recompute_job() -> None:
