@@ -80,49 +80,60 @@ def _find_existing(session: Session, user_id: int, source: str, subject: str) ->
     return next((t for t in candidates if same_topic(t.title, subject)), None)
 
 
+def ingest_message(
+    session: Session, user: User, message: ParsedMessage, now: datetime
+) -> tuple[Task | None, bool]:
+    """Create a task for the message, or fold it into an existing one. Returns (task, created)."""
+    settings = session.get(UserSettings, user.id)
+    category = categorize(message, settings.allowlist if settings else ())
+    source = source_for(category)
+    deadline = extract_deadline(
+        f"{message.subject}\n{message.body_text}", message.received_at or now, now
+    )
+    link = pick_action_link(message)
+    status = "open" if deadline.confidence >= OPEN_CONFIDENCE else "needs_review"
+
+    existing = _find_existing(session, user.id, source, message.subject)
+    if existing is not None:
+        _merge(existing, message, category, deadline, link, now)
+        logger.info("message %s merged into task %s", message.message_id, existing.id)
+        return existing, False
+
+    task_id = session.execute(
+        insert(Task)
+        .values(
+            user_id=user.id,
+            title=clean_title(message.subject),
+            source=source,
+            source_ref=message.message_id,
+            link=link.url,
+            link_type=link.link_type,
+            link_confidence=link.confidence,
+            priority=priority_for(category, deadline.deadline, now),
+            deadline=deadline.deadline,
+            status=status,
+            confidence=deadline.confidence,
+            source_received_at=message.received_at,
+        )
+        .on_conflict_do_nothing(index_elements=["user_id", "source_ref"])
+        .returning(Task.id)
+    ).scalar()
+    logger.info(
+        "message %s -> task %s source=%s status=%s link_type=%s",
+        message.message_id, task_id, source, status, link.link_type,
+    )  # fmt: skip
+    if task_id is None:  # already created for this message
+        return session.scalar(
+            select(Task).where(Task.user_id == user.id, Task.source_ref == message.message_id)
+        ), False
+    return session.get(Task, task_id), True
+
+
 def make_task_stage(
     session: Session, clock: Callable[[], datetime] = lambda: datetime.now(UTC)
 ) -> NextStage:
     def stage(user: User, message: ParsedMessage) -> None:
-        now = clock()
-        settings = session.get(UserSettings, user.id)
-        category = categorize(message, settings.allowlist if settings else ())
-        source = source_for(category)
-        deadline = extract_deadline(
-            f"{message.subject}\n{message.body_text}", message.received_at or now, now
-        )
-        link = pick_action_link(message)
-        status = "open" if deadline.confidence >= OPEN_CONFIDENCE else "needs_review"
-
-        existing = _find_existing(session, user.id, source, message.subject)
-        if existing is not None:
-            _merge(existing, message, category, deadline, link, now)
-            logger.info("message %s merged into task %s", message.message_id, existing.id)
-            return
-
-        result = session.execute(
-            insert(Task)
-            .values(
-                user_id=user.id,
-                title=clean_title(message.subject),
-                source=source,
-                source_ref=message.message_id,
-                link=link.url,
-                link_type=link.link_type,
-                link_confidence=link.confidence,
-                priority=priority_for(category, deadline.deadline, now),
-                deadline=deadline.deadline,
-                status=status,
-                confidence=deadline.confidence,
-                source_received_at=message.received_at,
-            )
-            .on_conflict_do_nothing(index_elements=["user_id", "source_ref"])
-            .returning(Task.id)
-        )
-        logger.info(
-            "message %s -> task %s source=%s status=%s link_type=%s",
-            message.message_id, result.scalar(), source, status, link.link_type,
-        )  # fmt: skip
+        ingest_message(session, user, message, clock())
 
     return stage
 

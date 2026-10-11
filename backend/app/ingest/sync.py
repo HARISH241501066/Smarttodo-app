@@ -81,7 +81,7 @@ def user_sync_lock(session: Session, user_id: int) -> Iterator[None]:
             conn.commit()
 
 
-def _get_or_create_settings(session: Session, user_id: int) -> UserSettings:
+def get_or_create_settings(session: Session, user_id: int) -> UserSettings:
     row = session.get(UserSettings, user_id)
     if row is None:
         row = UserSettings(user_id=user_id, denylist=list(DEFAULT_DENYLIST))
@@ -180,7 +180,7 @@ def run_sync(
 
 
 def _run(user: User, session: Session, gmail: GmailApi, sink: Sink) -> SyncResult:
-    denylist = normalize_denylist(_get_or_create_settings(session, user.id).denylist)
+    denylist = normalize_denylist(get_or_create_settings(session, user.id).denylist)
     state = _get_or_create_state(session, user.id)
 
     result = SyncResult(mode="incremental")
