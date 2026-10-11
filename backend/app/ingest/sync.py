@@ -26,6 +26,7 @@ from app.ingest.query import (
     build_query,
     labels_allowed,
     normalize_denylist,
+    sender_matches,
     sender_matches_denylist,
 )
 from app.models import IngestFailure, SyncState, User, UserSettings
@@ -180,7 +181,9 @@ def run_sync(
 
 
 def _run(user: User, session: Session, gmail: GmailApi, sink: Sink) -> SyncResult:
-    denylist = normalize_denylist(get_or_create_settings(session, user.id).denylist)
+    settings = get_or_create_settings(session, user.id)
+    denylist = normalize_denylist(settings.denylist)
+    always_track = normalize_denylist(settings.always_track)
     state = _get_or_create_state(session, user.id)
 
     result = SyncResult(mode="incremental")
@@ -198,7 +201,7 @@ def _run(user: User, session: Session, gmail: GmailApi, sink: Sink) -> SyncResul
         result.mode = "backfill"
         # Capture the cursor BEFORE listing so mail arriving mid-backfill isn't missed.
         new_history_id = gmail.profile_history_id()
-        candidates = _backfill_ids(gmail, build_query(denylist))
+        candidates = _backfill_ids(gmail, build_query(denylist, always_track))
 
     # Earlier failures get another chance (bounded), without double-handling.
     for message_id in session.scalars(
@@ -212,7 +215,9 @@ def _run(user: User, session: Session, gmail: GmailApi, sink: Sink) -> SyncResul
     pending = list(candidates.items())
     for position, (message_id, stub_labels) in enumerate(pending):
         try:
-            _process_message(user, session, gmail, sink, denylist, message_id, stub_labels, result)
+            _process_message(
+                user, session, gmail, sink, denylist, message_id, stub_labels, result, always_track
+            )
         except RateLimited:
             # Quota isn't message-specific: park the rest instead of failing each one.
             rest = [mid for mid, _ in pending[position:]]
@@ -246,16 +251,20 @@ def _process_message(
     message_id: str,
     stub_labels: list[str] | None,
     result: SyncResult,
+    always_track: list[str] = (),  # type: ignore[assignment]
 ) -> None:
     try:
-        if stub_labels is not None and not labels_allowed(stub_labels):
+        # History stubs carry labels but no sender, so with tracked senders configured a message
+        # from the Promotions tab must be fetched to find out whether it is one of them.
+        if stub_labels is not None and not labels_allowed(stub_labels, tracked=bool(always_track)):
             outcome = "skipped"
         else:
             raw = gmail.get_message(message_id)
             result.fetched += 1
             parsed = parse_message(raw, gmail.get_attachment)
-            if not labels_allowed(parsed.labels) or sender_matches_denylist(
-                parsed.sender, denylist
+            tracked = sender_matches(parsed.sender, always_track)
+            if not labels_allowed(parsed.labels, tracked=tracked) or (
+                not tracked and sender_matches_denylist(parsed.sender, denylist)
             ):
                 outcome = "skipped"
             else:

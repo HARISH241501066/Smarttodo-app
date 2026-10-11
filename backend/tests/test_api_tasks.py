@@ -518,6 +518,7 @@ def test_get_settings_creates_defaults(api):
         "denylist": list(DEFAULT_DENYLIST),
         "allowlist": [],
         "digest_hour": 8,
+        "always_track": [],
     }
 
 
@@ -535,6 +536,7 @@ def test_put_settings_replaces_normalizes_and_feeds_the_gmail_query(api):
         "denylist": ["spammy.example", "news.test"],
         "allowlist": ["college.example.edu"],
         "digest_hour": 20,
+        "always_track": [],
     }
     assert api.get("/settings").json() == resp.json()
     assert "-from:spammy.example" in build_query(resp.json()["denylist"])

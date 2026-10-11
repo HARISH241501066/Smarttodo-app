@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from app.filters.auth_check import sender_domain
 from app.ingest.mime import ParsedMessage
 
-CATEGORIES = ("nptel", "gform", "internship", "college", "unknown")
+CATEGORIES = ("nptel", "gform", "internship", "college", "tracked", "unknown")
 
 _NPTEL_RE = re.compile(r"\bnptel\b", re.IGNORECASE)
 # Strong internship words are checked in subject and body; the weaker ones ("interview",
@@ -26,7 +26,11 @@ def is_gform_url(url: str) -> bool:
     return host == "forms.gle" or (host == "docs.google.com" and parsed.path.startswith("/forms"))
 
 
-def categorize(message: ParsedMessage, college_domains: Iterable[str] = ()) -> str:
+def categorize(
+    message: ParsedMessage, college_domains: Iterable[str] = (), tracked: bool = False
+) -> str:
+    """`tracked`: the sender is on the always-track list (and authenticated). Anything the rules
+    below do not recognise is then "tracked" rather than "unknown"."""
     domain = sender_domain(message.sender)
     if _domain_in(domain, ["nptel.ac.in"]) or _NPTEL_RE.search(message.subject):
         return "nptel"
@@ -38,7 +42,7 @@ def categorize(message: ParsedMessage, college_domains: Iterable[str] = ()) -> s
         return "internship"
     if _domain_in(domain, [d.strip().lower().removeprefix("@") for d in college_domains]):
         return "college"
-    return "unknown"
+    return "tracked" if tracked else "unknown"
 
 
 def source_for(category: str) -> str:

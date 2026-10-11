@@ -153,6 +153,9 @@ def seed(url: str) -> dict:
              deadline=now + timedelta(days=10), confidence=0.9,
              link="https://mail.google.com/mail/u/0/#all/seedcircular", link_type="gmail",
              link_confidence=0.0, source_ref="seedcircular")  # fmt: skip
+        task("tracked", "Statement ready (tracked sender)", source="tracked", priority="important",
+             confidence=1.0, link="https://mail.google.com/mail/u/0/#all/seedtracked",
+             link_type="gmail", link_confidence=0.0, source_ref="seedtracked")  # fmt: skip
         task("edit", "Edit me", source="manual", priority="regular", confidence=1.0)
         task("delete", "Delete me", source="manual", priority="regular", confidence=1.0,
              link="https://example.com/delete-me", link_type="action", link_confidence=1.0)  # fmt: skip

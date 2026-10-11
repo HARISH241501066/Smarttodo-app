@@ -1,6 +1,6 @@
 export type Priority = "urgent" | "important" | "regular";
 export type Status = "open" | "done" | "needs_review" | "dismissed";
-export type Source = "manual" | "nptel" | "internship" | "gform" | "college" | "other";
+export type Source = "manual" | "nptel" | "internship" | "gform" | "college" | "other" | "tracked";
 
 export interface Task {
   id: number;
@@ -57,6 +57,7 @@ export interface RescueResult {
 export interface SettingsData {
   denylist: string[];
   allowlist: string[];
+  always_track: string[];
   digest_hour: number;
 }
 

@@ -17,7 +17,7 @@ from app.filters.auth_check import DEFAULT_BRANDS
 from app.filters.scam import score_message
 from app.ingest.mime import ParsedMessage
 from app.ingest.sync import Sink, record_failure
-from app.models import ProcessedMessage, Quarantine, User
+from app.models import ProcessedMessage, Quarantine, User, UserSettings
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,8 @@ def make_filter_sink(
 
         try:
             with session.begin_nested():
-                verdict = score_message(message, brands)
+                settings = session.get(UserSettings, user.id)
+                verdict = score_message(message, brands, settings.always_track if settings else ())
                 if verdict.quarantine:
                     session.execute(
                         insert(Quarantine)
@@ -77,7 +78,12 @@ def make_filter_sink(
                 else:
                     next_stage(user, message)
                     decision = "passed"
-                _record(session, user.id, message.message_id, decision, f"score={verdict.score}")
+                note = f"score={verdict.score}"
+                if verdict.trusted_tracked:
+                    note = "tracked sender"
+                elif verdict.tracked:
+                    note += "; tracked sender failed authentication"
+                _record(session, user.id, message.message_id, decision, note)
         except Exception as exc:
             logger.warning(
                 "message %s failed in filter stage: %s", message.message_id, type(exc).__name__

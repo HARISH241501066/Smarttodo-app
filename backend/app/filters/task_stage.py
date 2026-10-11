@@ -19,6 +19,7 @@ from app.filters.categorize import categorize, source_for
 from app.filters.deadline import CONF_MANY, DATE_RE, extract_deadline, priority_for
 from app.filters.links import pick_action_link
 from app.filters.pipeline import NextStage
+from app.filters.scam import is_trusted_tracked
 from app.ingest.mime import ParsedMessage
 from app.models import Task, User, UserSettings
 from app.scheduler.reminders import sync_reminders
@@ -86,13 +87,18 @@ def ingest_message(
 ) -> tuple[Task | None, bool]:
     """Create a task for the message, or fold it into an existing one. Returns (task, created)."""
     settings = session.get(UserSettings, user.id)
-    category = categorize(message, settings.allowlist if settings else ())
+    # An authenticated mail from an always-track sender is always a task: it never waits in review.
+    tracked = settings is not None and is_trusted_tracked(message, settings.always_track)
+    category = categorize(message, settings.allowlist if settings else (), tracked=tracked)
     source = source_for(category)
     deadline = extract_deadline(
         f"{message.subject}\n{message.body_text}", message.received_at or now, now
     )
     link = pick_action_link(message)
-    status = "open" if deadline.confidence >= OPEN_CONFIDENCE else "needs_review"
+    status = "open" if tracked or deadline.confidence >= OPEN_CONFIDENCE else "needs_review"
+    priority = priority_for(category, deadline.deadline, now)
+    if tracked and deadline.deadline is None:
+        priority = "important"
 
     existing = _find_existing(session, user.id, source, message.subject)
     if existing is not None:
@@ -110,10 +116,10 @@ def ingest_message(
             link=link.url,
             link_type=link.link_type,
             link_confidence=link.confidence,
-            priority=priority_for(category, deadline.deadline, now),
+            priority=priority,
             deadline=deadline.deadline,
             status=status,
-            confidence=deadline.confidence,
+            confidence=1.0 if tracked and deadline.deadline is None else deadline.confidence,
             source_received_at=message.received_at,
         )
         .on_conflict_do_nothing(index_elements=["user_id", "source_ref"])

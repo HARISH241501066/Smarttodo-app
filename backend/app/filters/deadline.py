@@ -128,4 +128,4 @@ def extract_deadline(
 def priority_for(category: str, deadline: datetime | None, now: datetime) -> str:
     if deadline is not None and deadline - now <= URGENT_WINDOW:
         return "urgent"
-    return "important" if category in ("nptel", "internship", "gform") else "regular"
+    return "important" if category in ("nptel", "internship", "gform", "tracked") else "regular"

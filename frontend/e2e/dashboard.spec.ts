@@ -365,14 +365,14 @@ test("settings: edit the filter lists and digest hour, reject bad entries, and p
   const deny = app.getByRole("textbox", { name: "Never scan mail from" });
   await expect(app.getByRole("list", { name: "Never scan mail from entries" })).toContainText("linkedin.com");
   await deny.fill("javascript:alert(1)");
-  await app.getByRole("button", { name: "Add" }).first().click();
+  await app.getByRole("button", { name: "Add to Never scan mail from" }).click();
   await expect(app.locator('p[role="alert"]')).toContainText("plain domain");
   await deny.fill("@Spammy.Example");
   await deny.press("Enter");
   await expect(app.getByRole("list", { name: "Never scan mail from entries" })).toContainText("spammy.example");
 
   await app.getByRole("textbox", { name: "My college domains" }).fill("college.example.edu");
-  await app.getByRole("button", { name: "Add" }).nth(1).click();
+  await app.getByRole("button", { name: "Add to My college domains" }).click();
   await app.getByLabel("Remove naukri.com").click();
   await app.getByLabel("Daily digest time").selectOption("20");
   await expect(save).toBeEnabled();
@@ -388,8 +388,81 @@ test("settings: edit the filter lists and digest hour, reject bad entries, and p
   expect(await api(app, "/settings")).toEqual({
     denylist: ["linkedin.com", "spammy.example"],
     allowlist: ["college.example.edu"],
+    always_track: [],
     digest_hour: 20,
   });
+});
+
+test("always turn into tasks: add, reject bad or conflicting entries, remove, and persist after reload", async ({ app }) => {
+  await app.goto("/settings");
+  const tracked = app.getByRole("textbox", { name: "Always turn into tasks" });
+  const list = app.getByRole("list", { name: "Always turn into tasks entries" });
+  const add = app.getByRole("button", { name: "Add to Always turn into tasks" });
+  const alert = app.locator('p[role="alert"]');
+  await expect(tracked).toBeVisible(); // settings have loaded
+
+  // the section sits above "Never scan mail from" and explains itself
+  const headings = await app.getByText(/^(Always turn into tasks|Never scan mail from|My college domains)$/).allTextContents();
+  expect(headings).toEqual(["Always turn into tasks", "Never scan mail from", "My college domains"]);
+  await expect(app.getByText("Mail from these senders always becomes a task, even from the Promotions tab.")).toBeVisible();
+  await expect(list).toHaveCount(0); // nothing yet
+
+  for (const bad of ["nodot", "https://nptel.ac.in", "a b.com", "x@", "-bad.com"]) {
+    await tracked.fill(bad);
+    await add.click();
+    await expect(alert).toContainText("domain");
+    await expect(list).toHaveCount(0);
+  }
+
+  await tracked.fill("spammy.example"); // already in "Never scan mail from"
+  await add.click();
+  await expect(alert).toContainText('already in "Never scan mail from"');
+  await expect(list).toHaveCount(0);
+
+  await tracked.fill("NPTEL.ac.in");
+  await tracked.press("Enter");
+  await tracked.fill("News@Example.com");
+  await add.click();
+  await expect(list).toContainText("nptel.ac.in");
+  await expect(list).toContainText("news@example.com");
+  await expect(alert).toHaveCount(0);
+
+  // the same entry cannot also be denylisted
+  const deny = app.getByRole("textbox", { name: "Never scan mail from" });
+  await deny.fill("nptel.ac.in");
+  await app.getByRole("button", { name: "Add to Never scan mail from" }).click();
+  await expect(alert).toContainText('already in "Always turn into tasks"');
+
+  await app.getByLabel("Remove news@example.com").click();
+  await expect(list).not.toContainText("news@example.com");
+  await app.getByRole("button", { name: "Save settings" }).click();
+  await expect(app.getByRole("status").filter({ hasText: "Settings saved" })).toBeVisible();
+
+  await app.reload();
+  await expect(app.getByRole("list", { name: "Always turn into tasks entries" })).toContainText("nptel.ac.in");
+  await expect(app.getByRole("list", { name: "Always turn into tasks entries" })).not.toContainText("news@example.com");
+  expect((await api<{ always_track: string[] }>(app, "/settings")).always_track).toEqual(["nptel.ac.in"]);
+
+  // removing the last chip persists too
+  await app.getByLabel("Remove nptel.ac.in").click();
+  await app.getByRole("button", { name: "Save settings" }).click();
+  await expect(app.getByRole("status").filter({ hasText: "Settings saved" }).last()).toBeVisible();
+  await app.reload();
+  await expect(app.getByRole("list", { name: "Always turn into tasks entries" })).toHaveCount(0);
+  expect((await api<{ always_track: string[] }>(app, "/settings")).always_track).toEqual([]);
+});
+
+test('tasks with no deadline show a "No deadline" badge; tracked tasks are labelled Tracked', async ({ app }) => {
+  await app.goto("/");
+  await waitForTasks(app);
+  const tracked = card(app, "Statement ready (tracked sender)");
+  await expect(tracked.getByTestId("no-deadline")).toHaveText("No deadline");
+  await expect(tracked.getByText("Tracked", { exact: true })).toBeVisible();
+  await expect(app.locator("section", { has: app.getByRole("heading", { name: /^Important/ }) })).toContainText("Statement ready (tracked sender)");
+  await expect(card(app, "Edit me").getByTestId("no-deadline")).toBeVisible();
+  // tasks that do have a deadline never show the badge
+  await expect(card(app, "Submit NPTEL Assignment 5").getByTestId("no-deadline")).toHaveCount(0);
+  await expect(card(app, "Read the exam circular").getByTestId("no-deadline")).toHaveCount(0);
 });
 
 test("push opt-in: enable, send a test notification, see it in the bell, turn it off", async ({ app }) => {
@@ -543,14 +616,19 @@ test("the service worker shows a pushed notification that carries the task's lin
   await waitForTasks(app);
   await app.evaluate(() => navigator.serviceWorker.ready);
 
+  // The worker must be active before a push can reach it.
+  await expect
+    .poll(() => app.evaluate(async () => (await navigator.serviceWorker.ready).active?.state))
+    .toBe("activated");
+
   const cdp = await context.newCDPSession(app);
-  await cdp.send("ServiceWorker.enable");
-  const registrationId = await new Promise<string>((resolve) => {
-    cdp.on("ServiceWorker.workerRegistrationUpdated", (e: { registrations: { registrationId: string; scopeURL: string }[] }) => {
-      const r = e.registrations.find((x) => x.scopeURL === "http://localhost:3100/");
-      if (r) resolve(r.registrationId);
-    });
+  let registrationId: string | undefined;
+  cdp.on("ServiceWorker.workerRegistrationUpdated", (e: { registrations: { registrationId: string; scopeURL: string }[] }) => {
+    registrationId = e.registrations.find((r) => r.scopeURL === "http://localhost:3100/")?.registrationId ?? registrationId;
   });
+  await cdp.send("ServiceWorker.enable");
+  await expect.poll(() => registrationId).toBeTruthy();
+
   const payload = {
     title: "Complete immediately: Submit NPTEL Assignment 5",
     body: "Due Tue, 22 Jan 2030, 11:59 PM IST",
@@ -558,28 +636,26 @@ test("the service worker shows a pushed notification that carries the task's lin
     tag: "task-1",
     task_id: 1,
   };
-  await cdp.send("ServiceWorker.deliverPushMessage", {
-    origin: "http://localhost:3100",
-    registrationId,
-    data: JSON.stringify(payload),
-  });
-
-  const shown = await expect
+  const shownNow = () =>
+    app.evaluate(async () => {
+      const reg = await navigator.serviceWorker.ready;
+      return (await reg.getNotifications()).map((n) => ({ title: n.title, body: n.body, url: (n.data as { url: string }).url }));
+    });
+  // Deliver until it shows. The same tag replaces the previous notification, so retries never pile up.
+  await expect
     .poll(
-      () =>
-        app.evaluate(async () => {
-          const reg = await navigator.serviceWorker.ready;
-          return (await reg.getNotifications()).map((n) => ({ title: n.title, body: n.body, data: n.data as { url: string } }));
-        }),
-      { timeout: 10_000 },
+      async () => {
+        await cdp.send("ServiceWorker.deliverPushMessage", {
+          origin: "http://localhost:3100",
+          registrationId: registrationId!,
+          data: JSON.stringify(payload),
+        });
+        return (await shownNow()).length;
+      },
+      { timeout: 20_000, intervals: [500] },
     )
-    .toHaveLength(1)
-    .then(() =>
-      app.evaluate(async () => {
-        const reg = await navigator.serviceWorker.ready;
-        return (await reg.getNotifications()).map((n) => ({ title: n.title, body: n.body, url: (n.data as { url: string }).url }));
-      }),
-    );
+    .toBe(1);
+  const shown = await shownNow();
   expect(shown).toEqual([{ title: payload.title, body: payload.body, url: payload.url }]);
 
   // offline: a navigation falls back to the cached offline page instead of a browser error

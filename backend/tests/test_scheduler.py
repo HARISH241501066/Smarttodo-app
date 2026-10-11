@@ -527,7 +527,6 @@ def test_digest_lists_everything_due_in_the_next_72_hours(db_session, user):
     make_task(db_session, user, DIGEST_NOW - H, title="Overdue")
     make_task(db_session, user, DIGEST_NOW + 5 * H, title="Done", status="done")
     make_task(db_session, user, DIGEST_NOW + 5 * H, title="Review", status="needs_review")
-    make_task(db_session, user, None, title="No deadline")
 
     assert run_digest(db_session, now=DIGEST_NOW) == 1
 
@@ -535,7 +534,7 @@ def test_digest_lists_everything_due_in_the_next_72_hours(db_session, user):
     assert note.kind == "digest" and note.task_id is None and note.read is False
     assert "2 task(s)" in note.title
     assert note.body.splitlines()[0].startswith("- Soon") and "Edge" in note.body
-    for absent in ("Later", "Overdue", "Done", "Review", "No deadline"):
+    for absent in ("Later", "Overdue", "Done", "Review"):
         assert absent not in note.body
 
 

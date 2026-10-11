@@ -16,7 +16,7 @@ MAX_LIST_ENTRIES = 200
 
 Priority = Literal["urgent", "important", "regular"]
 Status = Literal["open", "done", "needs_review", "dismissed"]
-Source = Literal["manual", "nptel", "internship", "gform", "college", "other"]
+Source = Literal["manual", "nptel", "internship", "gform", "college", "other", "tracked"]
 SettableStatus = Literal["open", "done", "dismissed"]
 
 
@@ -163,10 +163,35 @@ def _domain_list(values: list[str]) -> list[str]:
     return cleaned
 
 
+_LABEL = r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?"
+_DOMAIN = rf"(?:{_LABEL}\.)+[a-z]{{2,63}}"
+_DOMAIN_RE = re.compile(rf"^{_DOMAIN}$")
+_EMAIL_RE = re.compile(rf"^[a-z0-9][a-z0-9._%+-]{{0,63}}@{_DOMAIN}$")
+
+
+def _sender_list(values: list[str] | None) -> list[str] | None:
+    """Always-track entries must be a real domain (nptel.ac.in) or a full address (a@b.com)."""
+    if values is None:
+        return None
+    if len(values) > MAX_LIST_ENTRIES:
+        raise ValueError(f"at most {MAX_LIST_ENTRIES} entries")
+    out: list[str] = []
+    for raw in values:
+        entry = raw.strip().lower().removeprefix("@") if isinstance(raw, str) else ""
+        if not (_DOMAIN_RE.fullmatch(entry) or _EMAIL_RE.fullmatch(entry)):
+            raise ValueError(f"'{str(raw)[:60]}' is not a valid domain or email address")
+        if entry not in out:
+            out.append(entry)
+    return out
+
+
 class SettingsBody(BaseModel):
     denylist: list[str]
     allowlist: list[str]
     digest_hour: int = Field(ge=0, le=23)
+    # Senders whose mail always becomes a task. Omitted on PUT = leave the saved list unchanged.
+    always_track: list[str] | None = None
 
     _denylist = field_validator("denylist")(_domain_list)
     _allowlist = field_validator("allowlist")(_domain_list)
+    _always_track = field_validator("always_track")(_sender_list)

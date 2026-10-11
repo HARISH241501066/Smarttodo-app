@@ -12,6 +12,7 @@ export const SOURCE_LABEL: Record<Source, string> = {
   college: "College",
   manual: "Manual",
   other: "Email",
+  tracked: "Tracked",
 };
 
 const SOURCE_STYLE: Record<Source, string> = {
@@ -21,6 +22,7 @@ const SOURCE_STYLE: Record<Source, string> = {
   college: "bg-sky-500/15 text-sky-700 dark:text-sky-300",
   manual: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
   other: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
+  tracked: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
 };
 
 const PRIORITY_BORDER: Record<Priority, string> = {
@@ -77,7 +79,12 @@ export function TaskCard({ task, now, busy, completed, onDone, onReopen, onEdit,
             <span className="text-muted"> · {task.deadline_display}</span>
           </>
         ) : (
-          <span className="text-muted">No deadline</span>
+          <span
+            data-testid="no-deadline"
+            className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted"
+          >
+            No deadline
+          </span>
         )}
       </p>
       {task.notes ? <p className="mt-1 whitespace-pre-line break-words text-sm text-muted">{task.notes}</p> : null}

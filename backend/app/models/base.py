@@ -28,7 +28,7 @@ NAMING = {
     "pk": "pk_%(table_name)s",
 }
 
-TASK_SOURCES = ("manual", "nptel", "internship", "gform", "college", "other")
+TASK_SOURCES = ("manual", "nptel", "internship", "gform", "college", "other", "tracked")
 TASK_PRIORITIES = ("urgent", "important", "regular")
 TASK_STATUSES = ("open", "done", "needs_review", "dismissed")
 QUARANTINE_STATUSES = ("held", "rescued", "confirmed_scam")
@@ -233,6 +233,10 @@ class UserSettings(Base):
     )
     denylist: Mapped[Any] = mapped_column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
     allowlist: Mapped[Any] = mapped_column(
+        JSONB, server_default=text("'[]'::jsonb"), nullable=False
+    )
+    # Senders (domains or full addresses) whose mail always becomes a task.
+    always_track: Mapped[Any] = mapped_column(
         JSONB, server_default=text("'[]'::jsonb"), nullable=False
     )
     llm_enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)

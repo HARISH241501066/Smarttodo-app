@@ -8,6 +8,13 @@ import { useToast } from "@/components/toast";
 import { Button, ErrorNote, Field, Modal, Spinner, inputClass } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api";
 import { disablePush, enablePush, getPushState, type PushState } from "@/lib/push";
+import {
+  conflictMessage,
+  DENY_LABEL,
+  TRACKED_LABEL,
+  validateLooseEntry,
+  validateTrackedEntry,
+} from "@/lib/senders";
 import type { SettingsData } from "@/lib/types";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
@@ -175,10 +182,25 @@ export default function SettingsPage() {
         ) : (
           <div className="space-y-5">
             <ChipsEditor
-              label="Never scan mail from"
+              label={TRACKED_LABEL}
+              hint="Mail from these senders always becomes a task, even from the Promotions tab."
+              placeholder="nptel.ac.in or news@example.com"
+              values={draft.always_track}
+              onChange={(always_track) => setDraft({ ...draft, always_track })}
+              validate={(entry) =>
+                validateTrackedEntry(entry) ??
+                conflictMessage(entry, draft.denylist.includes(entry), DENY_LABEL)
+              }
+            />
+            <ChipsEditor
+              label={DENY_LABEL}
               hint="Senders and domains to ignore completely (LinkedIn and Naukri are there by default)."
               values={draft.denylist}
               onChange={(denylist) => setDraft({ ...draft, denylist })}
+              validate={(entry) =>
+                validateLooseEntry(entry) ??
+                conflictMessage(entry, draft.always_track.includes(entry), TRACKED_LABEL)
+              }
             />
             <ChipsEditor
               label="My college domains"

@@ -3,22 +3,26 @@
 import { useId, useState, type KeyboardEvent } from "react";
 import { Button, inputClass } from "@/components/ui";
 import { XIcon } from "@/components/icons";
-
-// Same rule as the backend: a plain domain or address, nothing that could act as a search operator.
-const ENTRY = /^[a-z0-9][a-z0-9._+@-]*$/;
-
-export function normalizeEntry(raw: string): string {
-  return raw.trim().toLowerCase().replace(/^@/, "");
-}
+import { normalizeEntry, validateLooseEntry } from "@/lib/senders";
 
 interface Props {
   label: string;
   hint: string;
   values: string[];
   onChange: (values: string[]) => void;
+  placeholder?: string;
+  /** Returns an error message for an entry that must not be added, or null if it is fine. */
+  validate?: (entry: string) => string | null;
 }
 
-export function ChipsEditor({ label, hint, values, onChange }: Props) {
+export function ChipsEditor({
+  label,
+  hint,
+  values,
+  onChange,
+  placeholder = "example.com",
+  validate = validateLooseEntry,
+}: Props) {
   const id = useId();
   const [draft, setDraft] = useState("");
   const [problem, setProblem] = useState<string | null>(null);
@@ -26,8 +30,9 @@ export function ChipsEditor({ label, hint, values, onChange }: Props) {
   function add() {
     const entry = normalizeEntry(draft);
     if (!entry) return;
-    if (!ENTRY.test(entry)) {
-      setProblem("Enter a plain domain such as example.com, or an address such as news@example.com.");
+    const error = validate(entry);
+    if (error) {
+      setProblem(error);
       return;
     }
     setProblem(null);
@@ -55,13 +60,15 @@ export function ChipsEditor({ label, hint, values, onChange }: Props) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKey}
-          placeholder="example.com"
+          placeholder={placeholder}
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
           aria-describedby={problem ? `${id}-err` : undefined}
         />
-        <Button onClick={add}>Add</Button>
+        <Button onClick={add} aria-label={`Add to ${label}`}>
+          Add
+        </Button>
       </div>
       {problem ? (
         <p id={`${id}-err`} role="alert" className="mt-1 text-xs text-danger">
