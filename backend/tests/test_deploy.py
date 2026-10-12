@@ -362,3 +362,11 @@ def test_a_cached_answer_still_notices_an_old_heartbeat_and_a_down_database(real
     assert calls == []  # still inside the minute
     clock[0] += 61
     assert health(now)[0] == 200 and calls == [1]
+
+
+def test_health_answers_head_requests_like_get_for_uptime_monitors(real_db):
+    web = TestClient(create_app(None))
+    got, head = web.get("/health"), web.head("/health")
+    assert head.status_code == got.status_code == 200
+    assert head.content == b""  # a HEAD answer carries the status and headers only
+    assert web.post("/health").status_code == 405

@@ -112,7 +112,7 @@ def create_app(static_dir: str | Path | None = None) -> FastAPI:
     async def _google_auth_error(request: Request, exc: GoogleAuthError) -> JSONResponse:
         return JSONResponse({"detail": "Could not reach Google; try again"}, status_code=502)
 
-    @app.get("/health")
+    @app.api_route("/health", methods=["GET", "HEAD"])  # uptime monitors usually send HEAD
     def health_check() -> Response:
         status, body = health()
         return JSONResponse(body, status_code=status, headers={"Cache-Control": "no-store"})
