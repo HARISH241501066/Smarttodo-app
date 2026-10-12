@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -42,29 +43,58 @@ if not _app_logger.handlers:
 API_PREFIX = "/api"
 
 
+LOCK_RETRY_SECONDS = 30  # how often an instance that is waiting for the scheduler tries again
+
+
+def _start_scheduler_if_free(app: FastAPI) -> bool:
+    """Take the scheduler lock and start the scheduler. False when another instance holds it."""
+    lock = acquire_scheduler_lock()
+    if lock is None:
+        return False
+    app.state.scheduler_lock = lock
+    app.state.scheduler = start_scheduler()
+    beat_now()  # alive from the first second, so /health is green as soon as we serve
+    return True
+
+
+def _wait_for_the_scheduler(app: FastAPI, stop: threading.Event) -> None:
+    """During a deploy the old and the new instance overlap, and the old one still holds the lock
+    for a moment. The new one must not give up: it keeps trying until the old one has gone."""
+    while not stop.wait(LOCK_RETRY_SECONDS):
+        try:
+            if _start_scheduler_if_free(app):
+                _app_logger.info("the other instance has gone; this one now runs the scheduler")
+                return
+        except Exception as exc:  # a database hiccup must not end the retrying
+            _app_logger.error("scheduler retry failed: %s", type(exc).__name__)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Run the background scheduler inside the API process when SCHEDULER_ENABLED is true.
     Jobs live in Postgres, so they survive a restart. Only the process that holds the scheduler's
-    advisory lock runs it, so a second instance can never send reminders twice."""
-    scheduler = lock = None
-    if get_settings().scheduler_enabled:
-        lock = acquire_scheduler_lock()
-        if lock is None:
-            _app_logger.warning("another instance already runs the scheduler; not starting one")
-        else:
-            scheduler = start_scheduler()
-            app.state.scheduler = scheduler
-            beat_now()  # alive from the first second, so /health is green as soon as we serve
-    app.state.scheduler_lock = lock
+    advisory lock runs it, so a second instance can never send reminders twice; one that finds the
+    lock taken waits and takes over as soon as it is free."""
+    app.state.scheduler = app.state.scheduler_lock = None
+    stop = threading.Event()
+    waiter = None
+    if get_settings().scheduler_enabled and not _start_scheduler_if_free(app):
+        _app_logger.warning("another instance already runs the scheduler; waiting for it to stop")
+        waiter = threading.Thread(
+            target=_wait_for_the_scheduler, args=(app, stop), name="scheduler-wait", daemon=True
+        )
+        waiter.start()
     try:
         yield
     finally:
-        if scheduler is not None:
-            scheduler.shutdown(wait=True)
+        stop.set()
+        if waiter is not None:
+            waiter.join(timeout=10)
+        if app.state.scheduler is not None:
+            app.state.scheduler.shutdown(wait=True)
             _app_logger.info("scheduler stopped")
-        if lock is not None:
-            lock.release()
+        if app.state.scheduler_lock is not None:
+            app.state.scheduler_lock.release()
 
 
 def create_app(static_dir: str | Path | None = None) -> FastAPI:

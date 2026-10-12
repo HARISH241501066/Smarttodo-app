@@ -295,13 +295,53 @@ def test_two_app_processes_start_but_only_one_runs_the_scheduler(real_db, monkey
     with TestClient(first):
         with TestClient(second):
             assert started == ["started"]  # the second app came up without a scheduler
-            assert hasattr(first.state, "scheduler") and not hasattr(second.state, "scheduler")
+            assert first.state.scheduler is not None and second.state.scheduler is None
             assert second.state.scheduler_lock is None
         assert started == ["started"]
     assert started == ["started", "stopped"]
     # the lock went back when the first one stopped, so a restart works
     with TestClient(create_app(None)):
         assert started.count("started") == 2
+
+
+def test_an_instance_that_found_the_lock_taken_takes_over_when_the_old_one_stops(
+    real_db, monkeypatch
+):
+    """A deploy overlaps the old and the new instance. The new one must not stay without a
+    scheduler for good (reminders and the mailbox check would silently stop)."""
+    import time
+
+    import app.main as main_mod
+
+    started = []
+
+    class FakeScheduler:
+        def shutdown(self, wait=True):
+            started.append("stopped")
+
+    monkeypatch.setenv("SCHEDULER_ENABLED", "true")
+    get_settings.cache_clear()
+    monkeypatch.setattr(main_mod, "LOCK_RETRY_SECONDS", 0.2)
+    monkeypatch.setattr(main_mod, "beat_now", lambda: None)
+    monkeypatch.setattr(
+        main_mod, "start_scheduler", lambda: started.append("started") or FakeScheduler()
+    )
+    old, new = create_app(None), create_app(None)
+    old_client = TestClient(old)
+    old_client.__enter__()  # the old instance is running and holds the lock
+    assert old.state.scheduler is not None
+    with TestClient(new):
+        assert new.state.scheduler is None  # the new one found the lock taken and waits
+        old_client.__exit__(None, None, None)  # the old instance stops: its lock is free
+        deadline = time.monotonic() + 10
+        while new.state.scheduler is None and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert new.state.scheduler is not None  # and the waiting one picked it up
+        assert started == ["started", "stopped", "started"]
+    assert started[-1] == "stopped"  # it shuts down cleanly
+    spare = acquire_scheduler_lock(real_db)
+    assert spare is not None  # the lock was given back
+    spare.release()
 
 
 def test_the_service_worker_is_allowed_to_fetch_from_its_own_origin(site):
