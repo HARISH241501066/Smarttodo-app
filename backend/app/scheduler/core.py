@@ -5,6 +5,7 @@ running several times) never duplicates them, and jobs already stored survive a 
 """
 
 import logging
+from datetime import datetime, timedelta
 
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -100,5 +101,12 @@ def start_scheduler(
     scheduler = build_scheduler(database_url)
     register_jobs(scheduler)
     scheduler.start(paused=paused)
+    if not paused:
+        # An interval job counts from the moment of (re)start. A host that sleeps when idle (a free
+        # web service) may wake for a few minutes and sleep again, so "15 minutes from now" would
+        # never arrive: read the mailbox shortly after every start instead.
+        scheduler.modify_job(
+            "poll_sync", next_run_time=datetime.now(scheduler.timezone) + timedelta(seconds=20)
+        )
     logger.info("scheduler started with jobs: %s", ", ".join(sorted(JOBS)))
     return scheduler

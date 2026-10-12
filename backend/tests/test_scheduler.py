@@ -728,3 +728,19 @@ def test_the_scheduler_is_off_by_default(engine):
     assert get_settings().scheduler_enabled is False
     with TestClient(app):
         assert not hasattr(app.state, "scheduler") or not app.state.scheduler.running
+
+
+def test_the_mailbox_is_read_shortly_after_every_start_not_fifteen_minutes_later(engine):
+    """A host that sleeps when idle may only be awake for a few minutes at a time."""
+    from datetime import UTC, datetime
+
+    scheduler = start_scheduler(db_url(engine))
+    try:
+        due = scheduler.get_job("poll_sync").next_run_time
+        assert timedelta(0) < due - datetime.now(UTC) <= timedelta(seconds=30)
+        # the other jobs keep their normal rhythm
+        assert scheduler.get_job("priority_recompute").next_run_time - datetime.now(
+            UTC
+        ) > timedelta(minutes=5)
+    finally:
+        scheduler.shutdown(wait=False)
