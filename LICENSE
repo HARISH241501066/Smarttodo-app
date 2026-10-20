@@ -1,21 +1,21 @@
-MIT License
+Copyright (c) 2026 Harish. All Rights Reserved.
 
-Copyright (c) 2026 Harish
+This software and associated documentation files (the "Software") are proprietary and confidential.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+No permission is granted to any person obtaining a copy of this Software to copy, use, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, except as expressly authorized below:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+1. Permitted Use:
+   You may view, inspect, and evaluate the source code solely for personal reference, learning, and portfolio evaluation purposes on GitHub.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+2. Prohibited Use:
+   You may NOT, without prior express written permission from the copyright holder (Harish):
+   - Copy, reproduce, or redistribute this codebase or any portion thereof.
+   - Modify, adapt, or create derivative works based on this Software.
+   - Deploy, host, run, or utilize this Software for commercial, production, or organizational use.
+   - Sublicense, resell, or include this Software in other projects or software applications.
+
+3. Unauthorized Use:
+   Any unauthorized use, copying, modification, or distribution of this Software constitutes copyright infringement and a violation of intellectual property laws. The copyright holder reserves all legal rights and remedies available under applicable law, including seeking injunctive relief and statutory/actual monetary damages.
+
+4. Disclaimer of Warranty & Liability:
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
